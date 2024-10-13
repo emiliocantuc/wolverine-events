@@ -101,21 +101,42 @@
     </footer>
 
     <script>
-        function toggleVoteButtons(id, dir) {
-            console.log(id);
-            let upButton = document.getElementById(id + '_up');
-            let downButton = document.getElementById(id + '_down');
-            let counter = document.getElementById(id + '_count');
+        function toggleVoteButtons(event_id, dir, hx_div) {
+            console.log(event_id); // of svgs
+            console.log(hx_div);
+            
+            let upButton = document.getElementById(event_id + '_up');
+            let downButton = document.getElementById(event_id + '_down');
+            let counter = document.getElementById(event_id + '_count');
             let counterInt = parseInt(counter.textContent, 10);
+
+            // Change color
             if (dir == 'up' && !upButton.classList.contains('text-warning')) {
                 upButton.classList.add('text-warning');
                 downButton.classList.remove('text-warning');
                 counter.textContent = counterInt + 1;
+            } else if (dir == 'up' && upButton.classList.contains('text-warning')) {
+                upButton.classList.remove('text-warning');
+                counter.textContent = counterInt - 1;
             } else if (dir == 'down' && !downButton.classList.contains('text-warning')) {
                 upButton.classList.remove('text-warning');
                 downButton.classList.add('text-warning');
                 counter.textContent = counterInt - 1;
+            } else if (dir == 'down' && downButton.classList.contains('text-warning')) {
+                downButton.classList.remove('text-warning');
+                counter.textContent = counterInt + 1;
             }
+
+            // Change hx method
+            let type = dir == 'up'? 'U': 'D';
+            if (hx_div.hasAttribute('hx-put')) {
+                hx_div.removeAttribute('hx-put');
+                hx_div.setAttribute('hx-delete', `/vote?eventId=${event_id}`);
+            } else if (hx_div.hasAttribute('hx-delete')) {
+                hx_div.removeAttribute('hx-delete');
+                hx_div.setAttribute('hx-put', `/vote?eventId=${event_id}&type=${type}`);
+            }
+
         }
     </script>
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>

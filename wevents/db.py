@@ -1,5 +1,5 @@
 import sqlite3
-
+from datetime import datetime
 
 def get_top_events(db, nweek, limit):
     query = """
@@ -67,19 +67,22 @@ def update_preference(db: sqlite3.Connection, user_id: int, pref_key: str, pref_
     except sqlite3.Error as e: raise Exception(f"could not update preference {pref_key}: {e}")
 
 
-def signin_user(db: sqlite3.Connection, email: str) -> int:
-    """Check if email exists. If it does, return user_id, else create a user and return its id"""
+def signin_user(db: sqlite3.Connection, email: str):
+    """
+    Returns user_id given email for a user. If the user is new we add it.
+    In addition we return whether the user is new.
+    """
     
     # Check if the user already exists
     query_check = "SELECT user_id FROM users WHERE email = ?"
     row = db.execute(query_check, (email,)).fetchone()
-    if row: return row[0]
+    if row: return row[0], False
     
     # If user doesn't exist, insert the new user
     query_insert = "INSERT INTO users (email) VALUES (?)"
     cursor = db.execute(query_insert, (email,))
     db.commit()
-    return cursor.lastrowid
+    return cursor.lastrowid, True
 
 
 def delete_user(db: sqlite3.Connection, user_id: int) -> None:
@@ -100,3 +103,20 @@ def delete_user(db: sqlite3.Connection, user_id: int) -> None:
         # Rollback transaction in case of error
         db.rollback()
         raise Exception(f"could not delete user: {e}")
+    
+
+def vote(db: sqlite3.Connection, user_id: int, event_id: int, vote_type: str) -> None:
+
+    if vote_type not in ("U", "D", "C"): raise ValueError(f"Invalid vote type: {vote_type}")
+
+    query = """
+        INSERT INTO votes (user_id, event_id, vote_type, voted_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(user_id, event_id)
+        DO UPDATE SET vote_type = excluded.vote_type, voted_at = excluded.voted_at
+    """
+
+    # Execute the query with the current timestamp
+    db.execute(query, (user_id, event_id, vote_type, datetime.now()))
+    db.commit()
+

@@ -56,14 +56,14 @@ def login():
     # Validate the token
     try:
         idinfo = id_token.verify_oauth2_token(request.form['credential'], requests.Request(), os.getenv('GOOGLE_CLIENT_ID'))
-        user_id = db_utils.signin_user(get_db(), idinfo['email'])
+        user_id, is_new = db_utils.signin_user(get_db(), idinfo['email'])
         session['user_id'] = user_id
         print('singed in ', idinfo['email'], user_id)
     except ValueError as e:
         print('error validating', e)
         return 'Error logging in'
     
-    return redirect(url_for('main'))
+    return redirect(url_for('prefs' if is_new else 'main'))
 
 @app.route('/logout')
 def logout():
@@ -77,6 +77,16 @@ def main():
     events = db_utils.get_top_events(db, 1, 20)
     events = [format_event(e) for e in events]
     return render_template('index.html', google_client_id = GOOGLE_CLIENT_ID, featured_events = events)
+
+@app.route('/vote', methods = ['PUT'])
+def vote():
+    try:
+        assert 'type' in request.args and 'eventId' in request.args
+        db_utils.vote(get_db(), g.user, request.args['eventId'], request.args['type'])
+        return 'ok'
+    except Exception as e:
+        print('Error voting: ', e)
+        return 'error'
 
 @app.route('/prefs', methods = ['GET', 'PUT', 'DELETE'])
 def prefs():
