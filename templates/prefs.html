@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preferences</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script>
+        window.onload = function () {
+            document.body.addEventListener('htmx:configRequest', function (evt) {
+                const isInput = evt.detail.elt.tagName == 'INPUT';
+                const isCheckbox = evt.detail.elt.type == 'checkbox';
+                const isNotChecked = evt.detail.elt.checked == false;
+                if (isInput && isCheckbox && isNotChecked) {
+                    const name = evt.detail.elt.name;
+                    evt.detail.parameters[name] = 0;
+                }
+            });
+        }
+    </script>
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-DQJSM8QBBQ"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-DQJSM8QBBQ');
+    </script>
+</head>
+
+<body>
+
+    <ul class="nav justify-content-center">
+        <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('main') }}">Home</a>
+        </li>
+    </ul>
+
+    <header class="text-center my-5">
+        <h2>Preferences</h2>
+    </header>
+
+    <div class="container">
+
+        <!-- Email Link -->
+        <div class="mb-5">
+            <label><b>Email Notifications</b></label>
+            <p>Get notified weekly when your recommendations are ready by joining the <a
+                    style="text-decoration: underline;"
+                    href="https://mcommunity.umich.edu/group/Event%20Recommentations" target="_blank">MCommunity
+                    group</a>. To stop receiving emails, follow the same link and leave the group.</p>
+        </div>
+
+        <!-- Preferences begin -->
+        <div class="text-center">
+            <p>Optionally, you can input some of your info and interests to help us jump-start your recommendations.
+                Eventually, your recommendations should be based on the feedback you give to events. </p>
+        </div>
+
+        <!-- Interests -->
+        <div class="form-group">
+            <label for="interests" class="mb-0">Interests<small class="text-muted ml-2"><span id="interests_indicator"
+                        class="htmx-indicator">Updating ...</span></small></label>
+            <small class="form-text text-muted mt-0 mb-1">Separated by commas</small>
+            <textarea type="text" class="form-control" id="interests" name="interests"
+                placeholder="E.g: machine learning, deep learning, soccer" hx-put="/prefs"
+                hx-indicator="#interests_indicator" hx-target="next small">{{ prefs.interests }}</textarea>
+            <small class="form-text text-muted"></small>
+        </div>
+
+        <!-- Keywords to avoid -->
+        <div class="form-group">
+            <label for="keywordsToAvoid" class="mb-0">Keywords to avoid<small class="text-muted ml-2"><span
+                        id="keywordsToAvoid_indicator" class="htmx-indicator">Updating ...</span></small></label>
+            <small class="form-text text-muted mt-0 mb-1">Separated by commas</small>
+            <textarea type="text" class="form-control" id="keywordsToAvoid" name="keywordsToAvoid"
+                placeholder="E.g: housing, resume" hx-put="/prefs" hx-indicator="#keywordsToAvoid_indicator"
+                hx-target="next small">{{ prefs.keywordsToAvoid }}</textarea>
+            <small class="form-text text-muted"></small>
+        </div>
+
+        <!-- Auto save notice -->
+        Your preferences are saved automatically when you change them.
+
+        <!-- Delete Account -->
+        <br><br>
+        <a class="text-danger" hx-delete="/prefs" hx-confirm="Are you sure you wish to delete your account?">
+            Delete Account
+        </a>
+    </div>
+
+    <br><br>
+
+    <p style="margin-top: 64px;"></p>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap
