@@ -47,8 +47,7 @@ def get_preferences(db: sqlite3.Connection, user_id: int) -> dict:
     if row is None: raise Exception(f"No preferences found for user_id {user_id}")
 
     interests, keywords_to_avoid = row
-    print(row)
-
+    # TODO check if we could only return row?
     return {
         'interests': interests,
         'keywordsToAvoid': keywords_to_avoid
@@ -66,6 +65,21 @@ def update_preference(db: sqlite3.Connection, user_id: int, pref_key: str, pref_
         db.execute(query, (user_id, pref_value))
         db.commit()
     except sqlite3.Error as e: raise Exception(f"could not update preference {pref_key}: {e}")
+
+
+def signin_user(db: sqlite3.Connection, email: str) -> int:
+    """Check if email exists. If it does, return user_id, else create a user and return its id"""
+    
+    # Check if the user already exists
+    query_check = "SELECT user_id FROM users WHERE email = ?"
+    row = db.execute(query_check, (email,)).fetchone()
+    if row: return row[0]
+    
+    # If user doesn't exist, insert the new user
+    query_insert = "INSERT INTO users (email) VALUES (?)"
+    cursor = db.execute(query_insert, (email,))
+    db.commit()
+    return cursor.lastrowid
 
 
 def delete_user(db: sqlite3.Connection, user_id: int) -> None:

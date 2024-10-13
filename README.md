@@ -31,4 +31,4 @@ Emilio
 You received this email because you signed up to the site (https://mywolverine.events) and joined the MCommunity group https://mcommunity.umich.edu/group/Event%20Recommentations. To stop receiving these emails follow the group link and press "Leave Group".
 ```
 
-4. Install dependencies w/`pip install -r requirements.txt` and run `sudo flask --app serve.py run --host=0.0.0.0 --port=80 --debug`
+4. Install dependencies w/`pip install -r requirements.txt` and run `sudo sh serve.sh`
