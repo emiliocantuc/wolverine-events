@@ -43,17 +43,11 @@ def close_db(e = None):
     if db is not None: db.close()
 
 @app.before_request
-def load_logged_in_user():
-    # g.user = 1#'emilio'#
-    g.user = session.get('user_id', None)
-    print('user id', g.user)
+def load_logged_in_user(): g.user = session.get('user_id', None)
 
 # Auth
 @app.route('/login', methods = ['POST'])
 def login():
-    print(request.form)
-
-    # Validate the token
     try:
         idinfo = id_token.verify_oauth2_token(request.form['credential'], requests.Request(), os.getenv('GOOGLE_CLIENT_ID'))
         user_id, is_new = db_utils.signin_user(get_db(), idinfo['email'])
@@ -61,8 +55,7 @@ def login():
         print('singed in ', idinfo['email'], user_id)
     except ValueError as e:
         print('error validating', e)
-        return 'Error logging in'
-    
+        return 'Error logging in' 
     return redirect(url_for('prefs' if is_new else 'main'))
 
 @app.route('/logout')
@@ -71,12 +64,21 @@ def logout():
     return redirect(url_for('main'))
 
 
+# Main views
 @app.route('/', methods = ['GET'])
 def main():
     db = get_db()
-    events = db_utils.get_top_events(db, 1, 20)
-    events = [format_event(e) for e in events]
-    return render_template('index.html', google_client_id = GOOGLE_CLIENT_ID, featured_events = events)
+    # Get featured
+    featured_events = db_utils.get_top_events(db, 1, 20)
+    featured_events = [format_event(e) for e in featured_events]
+
+    # Get recommended
+    recommended_events = list(range(1,10))
+    recommended_events = db_utils.get_events(db, recommended_events)
+    recommended_events = [format_event(e) for e in recommended_events]
+    print('recommended', recommended_events)
+
+    return render_template('index.html', google_client_id = GOOGLE_CLIENT_ID, recommended_events = recommended_events, featured_events = featured_events)
 
 @app.route('/vote', methods = ['PUT'])
 def vote():

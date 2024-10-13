@@ -1,6 +1,46 @@
 import sqlite3
 from datetime import datetime
 
+def get_events(db: sqlite3.Connection, event_ids: list[int]):
+    """
+    Fetch events from the database based on a list of event IDs.
+    
+    :param db: SQLite database connection.
+    :param event_ids: List of event IDs to fetch.
+    :return: List of event dictionaries.
+    """
+    query = f"""
+        SELECT 
+            e.event_id AS Id,
+            e.title AS Title,
+            e.type AS EventType,
+            e.event_description AS Description,
+            e.event_start AS StartDate,
+            e.event_end AS EndDate,
+            COALESCE(SUM(CASE WHEN v.vote_type = 'U' THEN 1 ELSE 0 END), 0) - 
+            COALESCE(SUM(CASE WHEN v.vote_type = 'D' THEN 1 ELSE 0 END), 0) AS VoteDiff,
+            e.gcal_link AS CalendarLink,
+            e.permalink AS PermaLink,
+            e.building_name AS BuildingName
+        FROM 
+            events e
+        LEFT JOIN 
+            votes v ON e.event_id = v.event_id
+        WHERE
+            Id IN ({','.join('?' * len(event_ids))})
+        GROUP BY 
+            e.event_id, e.title, e.event_description, e.event_start, e.event_end, e.gcal_link, e.permalink, e.building_name
+        ORDER BY 
+            VoteDiff DESC
+    """
+    # query = f"SELECT * FROM events WHERE id IN ({','.join('?' * len(event_ids))})"
+    print(event_ids)
+    cursor = db.execute(query, event_ids)
+    results = cursor.fetchall()
+    keys = ['Id', 'Title', 'EventType', 'Description', 'StartDate', 'EndDate', 'VoteDiff', 'CalendarLink', 'PermaLink', 'BuildingName']
+    events = [dict(zip(keys, row)) for row in results]
+    return events
+
 def get_top_events(db, nweek, limit):
     query = """
         SELECT 
