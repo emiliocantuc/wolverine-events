@@ -49,11 +49,14 @@
             </div>
         </center>
         {% endif %}
+        <!-- {% if recommended_events %}
+        <br><a href="#recs">Jump to Your Recommendations ↓</a>
+        {% endif %} -->
     </header>
 
     {% if g.user %}
     {% if recommended_events %}
-    <h3 class="text-center"><span>Your recommendations</span></h3><br>
+    <h3 id="recs" class="text-center"><span>Your recommendations</span></h3><br>
 
     <div class="container p-0  mb-5">
         <div class="card-deck">
