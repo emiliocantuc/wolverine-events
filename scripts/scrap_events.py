@@ -1,8 +1,10 @@
 # Fetches events from umich API, saves then to events table and updates statistics table
+# Then obtains their embeddings and saves them to data/current_embeddings.npy
 # Mean to be ran weekly (fetches from weekly endpoint by default)
 
-import sqlite3, requests, argparse, os
+import sqlite3, requests, argparse, os, time, json
 from datetime import datetime
+import numpy as np
 import utils
 
 def get_events(url):
@@ -58,20 +60,23 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description = 'Fetches events from umich API, saves then to events table and updates statistics table')
     parser.add_argument('--eventsURL', type = str, help = 'Events json endpoint', default = 'https://events.umich.edu/week/json?v=2', required = False)
-    parser.add_argument('--output', type = str, help = 'Output db file to save the events', default = 'data/main.db', required = False)
+    parser.add_argument('--output_db', type = str, help = 'Output db file to save the events', default = 'data/main.db', required = False)
+    parser.add_argument('--output_emb', type = str, help = 'Output npy file to save embeddings', default = 'data/current_embs.npy', required = False)
     parser.add_argument('--notify', type = str, help = 'ntfy to notify status to if not empty', default = '', required = False)
+    # parser.add_argument('--oai_key', type = str, help = 'OpenAI key to get embeddings', required = True)
     args = parser.parse_args()
 
     # Check if output db exists
-    assert os.path.exists(os.path.dirname(args.output)), 'The output db does not exist'
+    assert os.path.exists(os.path.dirname(args.output_db)), 'The output db does not exist'
     
     events = get_events(args.eventsURL)
     print(f'Found {len(events)} events. Getting calendar links ... ', end = '')
-    get_cal_links(events) # TODO what if this fails
+    get_cal_links(events)
+    with open('data/current_events.json', 'w+') as f: f.write(json.dumps(events))
     print('Done')
 
     print('Inserting events in db ... ', end = '')
-    conn = sqlite3.connect(args.output)
+    conn = sqlite3.connect(args.output_db)
     cursor = conn.cursor()
 
     try:
@@ -85,20 +90,20 @@ if __name__ == '__main__':
 
         # Insert events
         for event in events:
-            event['nweek'] = nweek
-            event['datetime_start'] = convert_to_sql_datetime(event['datetime_start'])
+            tmp_event = {k:v for k,v in event.items()}
+            tmp_event['nweek'] = nweek
+            tmp_event['datetime_start'] = convert_to_sql_datetime(tmp_event['datetime_start'])
             try:
-                event['datetime_end'] = convert_to_sql_datetime(event['datetime_end'])
+                tmp_event['datetime_end'] = convert_to_sql_datetime(tmp_event['datetime_end'])
             except:
-                event['datetime_end'] = ''
+                tmp_event['datetime_end'] = ''
 
-            insert_event(conn, event)
+            insert_event(conn, tmp_event)
 
         # Get the number of users
         cursor.execute('SELECT COUNT(*) FROM users;')
         nusers = cursor.fetchone()[0]
         print(f'nusers = {nusers} ', end='')
-
 
         # Insert into the statistics table
         cursor.execute('''
@@ -116,6 +121,5 @@ if __name__ == '__main__':
         if args.notify: utils.notify(args.notify, f'Error scrapping events: {e}', args.eventsURL)
         exit(1)
     
-    finally:
-        conn.close()
+    finally: conn.close()
     

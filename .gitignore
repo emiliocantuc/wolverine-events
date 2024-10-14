@@ -1,10 +1,13 @@
 # Custom
 *.db
+*.npy
 *.out
+*.key
 email_params.json
 email.txt
 .DS_Store
 data/cluster_data/
+data/*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

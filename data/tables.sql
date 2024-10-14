@@ -1,13 +1,13 @@
 -- Script that creates tables
 -- Ran with: sqlite3 main.db < tables.sql
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     user_id INTEGER PRIMARY KEY AUTOINCREMENT,
     email VARCHAR(100) NOT NULL UNIQUE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE preferences (
+CREATE TABLE IF NOT EXISTS preferences (
     user_id INT NOT NULL,
     interests TEXT DEFAULT '',
     keywordsToAvoid TEXT DEFAULT '',
@@ -17,7 +17,7 @@ CREATE TABLE preferences (
 );
 
 
-CREATE TABLE events (
+CREATE TABLE IF NOT EXISTS events (
     event_id INTEGER PRIMARY KEY AUTOINCREMENT,
     nweek INTEGER,
     title VARCHAR(100) NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE events (
 );
 
 
-CREATE TABLE votes (
+CREATE TABLE IF NOT EXISTS votes (
     user_id INTEGER NOT NULL,
     event_id INTEGER NOT NULL,
     vote_type CHAR(1) CHECK (vote_type IN ('U', 'D', 'C', 'N')), -- Upvote, Downvote, Clear, Neutral
@@ -44,8 +44,19 @@ CREATE TABLE votes (
     FOREIGN KEY (event_id) REFERENCES events(event_id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS user_ratings (
+    user_id INTEGER PRIMARY KEY,
+    ratings BLOB                  -- To store the ratings array as binary data
+);
 
-CREATE TABLE statistics (
+CREATE TABLE IF NOT EXISTS curr_event_embeddings (
+    event_id INTEGER PRIMARY KEY,
+    emb BLOB,
+    dists_to_clusters BLOB
+);
+
+
+CREATE TABLE IF NOT EXISTS statistics (
     nweek INT PRIMARY KEY,
     nusers INT,
     nevents INT

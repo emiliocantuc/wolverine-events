@@ -49,4 +49,4 @@ def get_embedding(l, key, model = 'text-embedding-3-small', dimensions = None):
     if response.status_code != 200 or 'embedding' not in response.text:
         raise Exception(f'Error getting embedding: {response.text}')
     
-    return [i['embedding'] for i in response.json()['data']][0]
+    return [i['embedding'] for i in response.json()['data']]

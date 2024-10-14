@@ -72,11 +72,21 @@ def main():
     featured_events = db_utils.get_top_events(db, 1, 20)
     featured_events = [format_event(e) for e in featured_events]
 
-    # Get recommended
+    # Compute recommended
+    
+    # Get current events
+    current_events = db_utils.get_current_events(db)
+    distances_to_clusters = np.array([e['dist_to_clusters'] for e in current_events])
+    print(distances_to_clusters.shape)
+
+    # Get user ratings
+    user_ratings = db_utils.get_ratings(db, g.user)
+    print(user_ratings.shape)
+
     recommended_events = list(range(1,10))
     recommended_events = db_utils.get_events(db, recommended_events)
     recommended_events = [format_event(e) for e in recommended_events]
-    print('recommended', recommended_events)
+    # print('recommended', recommended_events)
 
     return render_template('index.html', google_client_id = GOOGLE_CLIENT_ID, recommended_events = recommended_events, featured_events = featured_events)
 

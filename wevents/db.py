@@ -1,4 +1,5 @@
 import sqlite3
+import numpy as np
 from datetime import datetime
 
 def get_events(db: sqlite3.Connection, event_ids: list[int]):
@@ -74,6 +75,13 @@ def get_top_events(db, nweek, limit):
     events = [dict(zip(keys, row)) for row in results]
     return events
 
+def get_current_events(db: sqlite3.Connection):
+    query = """SELECT event_id, emb, dists_to_clusters FROM curr_event_embeddings"""
+    cursor = db.cursor()
+    cursor.execute(query)
+    results = cursor.fetchall()
+    return [{'id': row[0], 'emb': np.frombuffer(row[1]), 'dist_to_clusters': np.frombuffer(row[2])} for row in results]
+
 
 def get_preferences(db: sqlite3.Connection, user_id: int) -> dict:
     query = """
@@ -106,11 +114,17 @@ def update_preference(db: sqlite3.Connection, user_id: int, pref_key: str, pref_
         db.commit()
     except sqlite3.Error as e: raise Exception(f"could not update preference {pref_key}: {e}")
 
+def get_ratings(db: sqlite3.Connection, user_id: int) -> dict:
+    query = """SELECT ratings FROM user_ratings WHERE user_id = ?"""
+    cursor = db.execute(query, (user_id,))
+    results = cursor.fetchall()
+    print('results',results)
+    return np.frombuffer(results[0])
 
-def signin_user(db: sqlite3.Connection, email: str):
+def signin_user(db: sqlite3.Connection, email: str, emb_dim: int = 1536, sd: float = 0.1) -> tuple[int, bool]:
     """
-    Returns user_id given email for a user. If the user is new we add it.
-    In addition we return whether the user is new.
+    Returns user_id given email for a user. If the user is new, adds the user and their ratings.
+    Returns the user_id and a boolean indicating if the user is new.
     """
     
     # Check if the user already exists
@@ -119,10 +133,17 @@ def signin_user(db: sqlite3.Connection, email: str):
     if row: return row[0], False
     
     # If user doesn't exist, insert the new user
-    query_insert = "INSERT INTO users (email) VALUES (?)"
-    cursor = db.execute(query_insert, (email,))
+    query_insert_user = "INSERT INTO users (email) VALUES (?)"
+    cursor = db.execute(query_insert_user, (email,))
+    user_id = cursor.lastrowid
+
+    # Insert ratings for the new user
+    ratings = np.random.randn(emb_dim) * sd
+    query_insert_ratings = "INSERT INTO user_ratings (user_id, ratings) VALUES (?, ?)"
+    db.execute(query_insert_ratings, (user_id, ratings))
+    
     db.commit()
-    return cursor.lastrowid, True
+    return user_id, True
 
 
 def delete_user(db: sqlite3.Connection, user_id: int) -> None:
