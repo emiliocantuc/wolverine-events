@@ -18,14 +18,10 @@ if GOOGLE_CLIENT_ID is None: print('WARNING: No google client ID found!')
 app = Flask(__name__)
 
 # Secret key to sign cookies and maintain sessions
-if 'SESSION_SECRET' in os.environ:
-    sk = os.environ['SESSION_SECRET']
-else:
-    print('WARNING: no secret key found, using default devkey')
-    sk = 'devkey'
-app.secret_key = sk
+app.secret_key = os.environ.get('SESSION_SECRET', 'devkey')
+if app.secret_key == 'devkey': print('WARNING: no secret key found, using default devkey')
 
-# Database stuff
+# Database path
 app.config['DATABASE'] = 'data/main.db'
 
 def get_db():
@@ -69,7 +65,8 @@ def logout():
 def main():
     db = get_db()
     # Get featured
-    featured_events = db_utils.get_top_events(db, 25)
+    print('user', g.user)
+    featured_events = db_utils.get_top_events(db, 25, g.user)
     featured_events = [format_event(e) for e in featured_events]
 
     # Compute recommended
@@ -82,24 +79,38 @@ def main():
 
             user_ratings = db_utils.get_ratings(db, g.user)
             preds = weights @ user_ratings
+            print(preds.min(), preds.mean(), preds.max())
 
-            recommended_events = (preds).argsort()[-25:] # ix in current_events
+            shift = np.abs(preds.min()) if preds.min() < 0 else 0
+            shifted_preds = preds + shift
+            preds_prob = shifted_preds / shifted_preds.sum()
+            sampled_ix = np.random.choice(len(preds), size=40, replace=False, p=preds_prob)
+            recommended_events = sampled_ix
+
+            # recommended_events = (preds).argsort()[-40:] # ix in current_events
             recommended_events = [current_events[ix]['id'] for ix in recommended_events]
-            recommended_events = db_utils.get_events(db, recommended_events)
+            recommended_events = db_utils.get_events(db, recommended_events, g.user)
             recommended_events = [format_event(e) for e in recommended_events]
+            for e, og_ix in zip(recommended_events, sampled_ix):
+                e['info'] = round(preds[og_ix], 4)
 
-    except Exception as e:
-        print('error getting recs:', e)
+    except Exception as e: print('error getting recs:', e)
 
-    return render_template('index.html', google_client_id = GOOGLE_CLIENT_ID, recommended_events = recommended_events, featured_events = featured_events)
+    return render_template(
+        'index.html', google_client_id = GOOGLE_CLIENT_ID,
+        recommended_events = recommended_events, featured_events = featured_events
+    )
 
-@app.route('/vote', methods = ['PUT'])
+@app.route('/vote', methods = ['PUT', 'POST'])
 def vote():
     try:
-        assert 'type' in request.args and 'eventId' in request.args
+        print(request.args)
+        assert all([k in request.args for k in ('type', 'eventId', 'factor')])
+        factor = float(request.args['factor'])
+        assert factor in [-1., 1., 2.]
         db = get_db()
         db_utils.vote(db, g.user, request.args['eventId'], request.args['type'])
-        db_utils.update_user_ratings(db, g.user, request.args['eventId'], request.args['type'])
+        db_utils.update_user_ratings(db, g.user, request.args['eventId'], request.args['type'], factor)
         return 'ok'
     except Exception as e:
         print('Error voting: ', e)

@@ -32,3 +32,10 @@ You received this email because you signed up to the site (https://mywolverine.e
 ```
 
 4. Install dependencies w/`pip install -r requirements.txt` and run `sudo sh serve.sh`
+
+## TODO
+- clean up code
+- find obvious speedups
+On recs:
+- Deduplicate events (if very similar will have very similar predicted scores)
+- diversify feed (w/clusters?)

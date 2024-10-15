@@ -5,14 +5,16 @@ from datetime import datetime
 from wevents.utils import inv_distance_weights
 
 ######################################### EVENTS #########################################
-def get_events(db: sqlite3.Connection, event_ids: list[int]):
-    """
-    Fetch events from the database based on a list of event IDs.
-    
-    :param db: SQLite database connection.
-    :param event_ids: List of event IDs to fetch.
-    :return: List of event dictionaries.
-    """
+def get_events(db: sqlite3.Connection, event_ids: list[int], user_id:int = None):
+    # Dynamically determine the UserVote part of the query
+    user_vote_part = """,
+        CASE 
+            WHEN uv.vote_type = 'U' THEN 'U'
+            WHEN uv.vote_type = 'D' THEN 'D'
+            ELSE NULL
+        END AS UserVote
+    """ if user_id is not None else ""
+
     query = f"""
         SELECT 
             e.event_id AS Id,
@@ -25,11 +27,12 @@ def get_events(db: sqlite3.Connection, event_ids: list[int]):
             COALESCE(SUM(CASE WHEN v.vote_type = 'D' THEN 1 ELSE 0 END), 0) AS VoteDiff,
             e.gcal_link AS CalendarLink,
             e.permalink AS PermaLink,
-            e.building_name AS BuildingName
+            e.building_name AS BuildingName{user_vote_part.rstrip()}
         FROM 
             events e
         LEFT JOIN 
             votes v ON e.event_id = v.event_id
+        {"LEFT JOIN votes uv ON e.event_id = uv.event_id AND uv.user_id = ?" if user_id is not None else ""}
         WHERE
             Id IN ({','.join('?' * len(event_ids))})
         GROUP BY 
@@ -37,16 +40,29 @@ def get_events(db: sqlite3.Connection, event_ids: list[int]):
         ORDER BY 
             VoteDiff DESC
     """
-    # query = f"SELECT * FROM events WHERE id IN ({','.join('?' * len(event_ids))})"
-    print(event_ids)
-    cursor = db.execute(query, event_ids)
-    results = cursor.fetchall()
-    keys = ['Id', 'Title', 'EventType', 'Description', 'StartDate', 'EndDate', 'VoteDiff', 'CalendarLink', 'PermaLink', 'BuildingName']
-    events = [dict(zip(keys, row)) for row in results]
-    return events
 
-def get_top_events(db, limit):
-    query = """
+    params = (*event_ids,) if user_id is None else (user_id, *event_ids)
+    cursor = db.execute(query, params)
+    results = cursor.fetchall()
+
+    keys = ['Id', 'Title', 'EventType', 'Description', 'StartDate', 'EndDate', 'VoteDiff', 'CalendarLink', 'PermaLink', 'BuildingName']
+    if user_id is not None: keys.append('UserVote')
+    return [dict(zip(keys, row)) for row in results]
+
+
+def get_top_events(db, limit, user_id = None):
+    
+    # Dynamically determine the UserVote part of the query
+    user_vote_part = """,
+        CASE 
+            WHEN uv.vote_type = 'U' THEN 'U'
+            WHEN uv.vote_type = 'D' THEN 'D'
+            ELSE NULL
+        END AS UserVote
+    """ if user_id is not None else ""
+
+    # Construct the SQL query, adding user vote logic only if user_id is provided
+    query = f"""
         SELECT 
             e.event_id AS Id,
             e.title AS Title,
@@ -58,25 +74,25 @@ def get_top_events(db, limit):
             COALESCE(SUM(CASE WHEN v.vote_type = 'D' THEN 1 ELSE 0 END), 0) AS VoteDiff,
             e.gcal_link AS CalendarLink,
             e.permalink AS PermaLink,
-            e.building_name AS BuildingName
+            e.building_name AS BuildingName{user_vote_part.rstrip()}
         FROM 
             events e
         LEFT JOIN 
             votes v ON e.event_id = v.event_id
-        WHERE
-            e.nweek = (SELECT MAX(nweek) FROM events)
+        {"LEFT JOIN votes uv ON e.event_id = uv.event_id AND uv.user_id = ?" if user_id is not None else ""}
         GROUP BY 
             e.event_id, e.title, e.event_description, e.event_start, e.event_end, e.gcal_link, e.permalink, e.building_name
         ORDER BY 
             VoteDiff DESC, RANDOM()
         LIMIT ?
     """
-    cursor = db.cursor()
-    cursor.execute(query, (limit,))
+    params = (limit,) if user_id is None else (user_id, limit)    
+    cursor = db.execute(query, params)
     results = cursor.fetchall()
+
     keys = ['Id', 'Title', 'EventType', 'Description', 'StartDate', 'EndDate', 'VoteDiff', 'CalendarLink', 'PermaLink', 'BuildingName']
-    events = [dict(zip(keys, row)) for row in results]
-    return events
+    if user_id is not None: keys.append('UserVote')
+    return [dict(zip(keys, row)) for row in results]
 
 def get_current_events(db: sqlite3.Connection):
     query = """SELECT event_id, emb, dists_to_clusters FROM curr_event_embeddings"""
@@ -92,13 +108,12 @@ def get_ratings(db: sqlite3.Connection, user_id: int) -> dict:
     results = cursor.fetchall()
     return np.frombuffer(results[0][0])
 
-def update_user_ratings(db: sqlite3.Connection, user_id: int, event_id: int, vote_type: str):
+def update_user_ratings(db: sqlite3.Connection, user_id: int, event_id: int, vote_type: str, update_factor: float):
     """
     Update the ratings array of a user based on the event's dists_to_clusters and the vote type.
     """
-    update_factor = {'U': 1., 'D': -1., 'C': 2.}.get(vote_type)
-    print(update_factor)
-    assert update_factor is not None
+    assert update_factor in (1., -1., 2.)
+    print('update factor', update_factor)
     
     # Get event and weights
     query_event = "SELECT dists_to_clusters FROM curr_event_embeddings WHERE event_id = ?"
@@ -157,7 +172,7 @@ def update_preference(db: sqlite3.Connection, user_id: int, pref_key: str, pref_
         db.commit()
     except sqlite3.Error as e: raise Exception(f"could not update preference {pref_key}: {e}")
 
-def signin_user(db: sqlite3.Connection, email: str, n_clusters: int = 1000, sd: float = 0.1) -> tuple[int, bool]:
+def signin_user(db: sqlite3.Connection, email: str, n_clusters: int = 1000, sd: float = 1e-4) -> tuple[int, bool]:
     """
     Returns user_id given email for a user. If the user is new, adds the user and their ratings.
     Returns the user_id and a boolean indicating if the user is new.
@@ -175,8 +190,9 @@ def signin_user(db: sqlite3.Connection, email: str, n_clusters: int = 1000, sd: 
 
     # Insert ratings for the new user
     ratings = np.random.randn(n_clusters) * sd
+    print('ratings', ratings.shape, ratings.mean())
     query_insert_ratings = "INSERT INTO user_ratings (user_id, ratings) VALUES (?, ?)"
-    db.execute(query_insert_ratings, (user_id, ratings))
+    db.execute(query_insert_ratings, (user_id, ratings.tobytes()))
     
     db.commit()
     return user_id, True
@@ -204,7 +220,7 @@ def delete_user(db: sqlite3.Connection, user_id: int) -> None:
 
 def vote(db: sqlite3.Connection, user_id: int, event_id: int, vote_type: str) -> None:
 
-    if vote_type not in ("U", "D", "C"): raise ValueError(f"Invalid vote type: {vote_type}")
+    assert vote_type in ("U", "D", "C", "N")
 
     query = """
         INSERT INTO votes (user_id, event_id, vote_type, voted_at)
