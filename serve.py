@@ -21,7 +21,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SESSION_SECRET', 'devkey')
 if app.secret_key == 'devkey': print('WARNING: no secret key found, using default devkey')
 
-# Database path
+# Database stuff
 app.config['DATABASE'] = 'data/main.db'
 
 def get_db():
@@ -38,10 +38,10 @@ def close_db(e = None):
     db = g.pop('db', None)
     if db is not None: db.close()
 
+# Auth
 @app.before_request
 def load_logged_in_user(): g.user = session.get('user_id', None)
 
-# Auth
 @app.route('/login', methods = ['POST'])
 def login():
     try:
@@ -64,7 +64,7 @@ def logout():
 @app.route('/', methods = ['GET'])
 def main():
     db = get_db()
-    # Get featured
+    
     print('user', g.user)
     featured_events = db_utils.get_top_events(db, 25, g.user)
     featured_events = [format_event(e) for e in featured_events]

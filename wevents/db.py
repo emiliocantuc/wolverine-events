@@ -80,6 +80,8 @@ def get_top_events(db, limit, user_id = None):
         LEFT JOIN 
             votes v ON e.event_id = v.event_id
         {"LEFT JOIN votes uv ON e.event_id = uv.event_id AND uv.user_id = ?" if user_id is not None else ""}
+        WHERE
+            e.nweek = (SELECT MAX(nweek) FROM events)
         GROUP BY 
             e.event_id, e.title, e.event_description, e.event_start, e.event_end, e.gcal_link, e.permalink, e.building_name
         ORDER BY 
@@ -119,14 +121,14 @@ def update_user_ratings(db: sqlite3.Connection, user_id: int, event_id: int, vot
     query_event = "SELECT dists_to_clusters FROM curr_event_embeddings WHERE event_id = ?"
     event_row = db.execute(query_event, (event_id,)).fetchone()
     if event_row is None: raise ValueError(f"Event ID {event_id} not found.")
-    dists_to_clusters = np.frombuffer(event_row[0])  # Convert blob to NumPy array
+    dists_to_clusters = np.frombuffer(event_row[0])
     weights = inv_distance_weights(dists_to_clusters[None, :]).squeeze()
 
     # Get the user's current ratings (TODO could we save in session?)
     query_user_ratings = "SELECT ratings FROM user_ratings WHERE user_id = ?"
     user_row = db.execute(query_user_ratings, (user_id,)).fetchone()
     if user_row is None: raise ValueError(f"User ID {user_id} not found.")
-    user_ratings = np.frombuffer(user_row[0])  # Convert blob to NumPy array
+    user_ratings = np.frombuffer(user_row[0])
     print('user_ratings', user_ratings.shape, user_ratings.mean())
 
     # Compute new rating
