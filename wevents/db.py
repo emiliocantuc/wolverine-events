@@ -2,6 +2,9 @@ import sqlite3
 import numpy as np
 from datetime import datetime
 
+from wevents.utils import inv_distance_weights
+
+######################################### EVENTS #########################################
 def get_events(db: sqlite3.Connection, event_ids: list[int]):
     """
     Fetch events from the database based on a list of event IDs.
@@ -42,7 +45,7 @@ def get_events(db: sqlite3.Connection, event_ids: list[int]):
     events = [dict(zip(keys, row)) for row in results]
     return events
 
-def get_top_events(db, nweek, limit):
+def get_top_events(db, limit):
     query = """
         SELECT 
             e.event_id AS Id,
@@ -61,7 +64,7 @@ def get_top_events(db, nweek, limit):
         LEFT JOIN 
             votes v ON e.event_id = v.event_id
         WHERE
-            e.nweek = ?
+            e.nweek = (SELECT MAX(nweek) FROM events)
         GROUP BY 
             e.event_id, e.title, e.event_description, e.event_start, e.event_end, e.gcal_link, e.permalink, e.building_name
         ORDER BY 
@@ -69,7 +72,7 @@ def get_top_events(db, nweek, limit):
         LIMIT ?
     """
     cursor = db.cursor()
-    cursor.execute(query, (nweek, limit))
+    cursor.execute(query, (limit,))
     results = cursor.fetchall()
     keys = ['Id', 'Title', 'EventType', 'Description', 'StartDate', 'EndDate', 'VoteDiff', 'CalendarLink', 'PermaLink', 'BuildingName']
     events = [dict(zip(keys, row)) for row in results]
@@ -82,6 +85,46 @@ def get_current_events(db: sqlite3.Connection):
     results = cursor.fetchall()
     return [{'id': row[0], 'emb': np.frombuffer(row[1]), 'dist_to_clusters': np.frombuffer(row[2])} for row in results]
 
+########################################## USER ##########################################
+def get_ratings(db: sqlite3.Connection, user_id: int) -> dict:
+    query = """SELECT ratings FROM user_ratings WHERE user_id = ?"""
+    cursor = db.execute(query, (user_id,))
+    results = cursor.fetchall()
+    return np.frombuffer(results[0][0])
+
+def update_user_ratings(db: sqlite3.Connection, user_id: int, event_id: int, vote_type: str):
+    """
+    Update the ratings array of a user based on the event's dists_to_clusters and the vote type.
+    """
+    update_factor = {'U': 1., 'D': -1., 'C': 2.}.get(vote_type)
+    print(update_factor)
+    assert update_factor is not None
+    
+    # Get event and weights
+    query_event = "SELECT dists_to_clusters FROM curr_event_embeddings WHERE event_id = ?"
+    event_row = db.execute(query_event, (event_id,)).fetchone()
+    if event_row is None: raise ValueError(f"Event ID {event_id} not found.")
+    dists_to_clusters = np.frombuffer(event_row[0])  # Convert blob to NumPy array
+    weights = inv_distance_weights(dists_to_clusters[None, :]).squeeze()
+
+    # Get the user's current ratings (TODO could we save in session?)
+    query_user_ratings = "SELECT ratings FROM user_ratings WHERE user_id = ?"
+    user_row = db.execute(query_user_ratings, (user_id,)).fetchone()
+    if user_row is None: raise ValueError(f"User ID {user_id} not found.")
+    user_ratings = np.frombuffer(user_row[0])  # Convert blob to NumPy array
+    print('user_ratings', user_ratings.shape, user_ratings.mean())
+
+    # Compute new rating
+    new_rating = user_ratings + (update_factor * weights)
+    print('change', (new_rating - user_ratings).mean(), np.abs(new_rating - user_ratings).max())
+
+    query_update_ratings = "UPDATE user_ratings SET ratings = ? WHERE user_id = ?"
+    db.execute(query_update_ratings, (new_rating.tobytes(), user_id))
+    
+    # Commit the changes
+    db.commit()
+
+    print(f"User {user_id}'s ratings updated successfully.")
 
 def get_preferences(db: sqlite3.Connection, user_id: int) -> dict:
     query = """
@@ -114,14 +157,7 @@ def update_preference(db: sqlite3.Connection, user_id: int, pref_key: str, pref_
         db.commit()
     except sqlite3.Error as e: raise Exception(f"could not update preference {pref_key}: {e}")
 
-def get_ratings(db: sqlite3.Connection, user_id: int) -> dict:
-    query = """SELECT ratings FROM user_ratings WHERE user_id = ?"""
-    cursor = db.execute(query, (user_id,))
-    results = cursor.fetchall()
-    print('results',results)
-    return np.frombuffer(results[0])
-
-def signin_user(db: sqlite3.Connection, email: str, emb_dim: int = 1536, sd: float = 0.1) -> tuple[int, bool]:
+def signin_user(db: sqlite3.Connection, email: str, n_clusters: int = 1000, sd: float = 0.1) -> tuple[int, bool]:
     """
     Returns user_id given email for a user. If the user is new, adds the user and their ratings.
     Returns the user_id and a boolean indicating if the user is new.
@@ -138,7 +174,7 @@ def signin_user(db: sqlite3.Connection, email: str, emb_dim: int = 1536, sd: flo
     user_id = cursor.lastrowid
 
     # Insert ratings for the new user
-    ratings = np.random.randn(emb_dim) * sd
+    ratings = np.random.randn(n_clusters) * sd
     query_insert_ratings = "INSERT INTO user_ratings (user_id, ratings) VALUES (?, ?)"
     db.execute(query_insert_ratings, (user_id, ratings))
     

@@ -10,7 +10,7 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 
 import wevents.db as db_utils
-from wevents.utils import format_event
+from wevents.utils import format_event, inv_distance_weights
 
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
 if GOOGLE_CLIENT_ID is None: print('WARNING: No google client ID found!')
@@ -69,24 +69,27 @@ def logout():
 def main():
     db = get_db()
     # Get featured
-    featured_events = db_utils.get_top_events(db, 1, 20)
+    featured_events = db_utils.get_top_events(db, 25)
     featured_events = [format_event(e) for e in featured_events]
 
     # Compute recommended
-    
-    # Get current events
-    current_events = db_utils.get_current_events(db)
-    distances_to_clusters = np.array([e['dist_to_clusters'] for e in current_events])
-    print(distances_to_clusters.shape)
+    recommended_events = None
+    try:
+        if g.user:
+            current_events = db_utils.get_current_events(db)
+            dists_to_centroids = np.array([e['dist_to_clusters'] for e in current_events])
+            weights = inv_distance_weights(dists_to_centroids)
 
-    # Get user ratings
-    user_ratings = db_utils.get_ratings(db, g.user)
-    print(user_ratings.shape)
+            user_ratings = db_utils.get_ratings(db, g.user)
+            preds = weights @ user_ratings
 
-    recommended_events = list(range(1,10))
-    recommended_events = db_utils.get_events(db, recommended_events)
-    recommended_events = [format_event(e) for e in recommended_events]
-    # print('recommended', recommended_events)
+            recommended_events = (preds).argsort()[-25:] # ix in current_events
+            recommended_events = [current_events[ix]['id'] for ix in recommended_events]
+            recommended_events = db_utils.get_events(db, recommended_events)
+            recommended_events = [format_event(e) for e in recommended_events]
+
+    except Exception as e:
+        print('error getting recs:', e)
 
     return render_template('index.html', google_client_id = GOOGLE_CLIENT_ID, recommended_events = recommended_events, featured_events = featured_events)
 
@@ -94,7 +97,9 @@ def main():
 def vote():
     try:
         assert 'type' in request.args and 'eventId' in request.args
-        db_utils.vote(get_db(), g.user, request.args['eventId'], request.args['type'])
+        db = get_db()
+        db_utils.vote(db, g.user, request.args['eventId'], request.args['type'])
+        db_utils.update_user_ratings(db, g.user, request.args['eventId'], request.args['type'])
         return 'ok'
     except Exception as e:
         print('Error voting: ', e)
@@ -116,6 +121,7 @@ def prefs():
     if request.method == 'DELETE':
         try:
             db_utils.delete_user(db, g.user)
+            session.pop('user_id', None)
             return 'Successfully deleted account. Close tab to exit.'
         except Exception as e:
             print(f'Error deleting account: {e}')
