@@ -81,18 +81,20 @@ def main():
             preds = weights @ user_ratings
             print(preds.min(), preds.mean(), preds.max())
 
-            shift = np.abs(preds.min()) if preds.min() < 0 else 0
-            shifted_preds = preds + shift
-            preds_prob = shifted_preds / shifted_preds.sum()
-            sampled_ix = np.random.choice(len(preds), size=40, replace=False, p=preds_prob)
-            recommended_events = sampled_ix
+            # shift = (np.abs(preds.min()) if preds.min() < 0 else 0) + 1 # in case 0
+            # shifted_preds = preds + shift
+            # preds_prob = shifted_preds / shifted_preds.sum()
+            # sampled_ix = np.random.choice(len(preds), size=40, replace=False, p=preds_prob)
+            # recommended_events = sampled_ix
 
-            # recommended_events = (preds).argsort()[-40:] # ix in current_events
-            recommended_events = [current_events[ix]['id'] for ix in recommended_events]
-            recommended_events = db_utils.get_events(db, recommended_events, g.user)
+            rec_ixs = (preds).argsort()[-50:][::-1] # ix in current_events
+
+            rec_og_ixs = [current_events[ix]['id'] for ix in rec_ixs]
+            recommended_events = db_utils.get_events(db, rec_og_ixs, g.user)
             recommended_events = [format_event(e) for e in recommended_events]
-            for e, og_ix in zip(recommended_events, sampled_ix):
-                e['info'] = round(preds[og_ix], 4)
+
+            for e, og_ix in zip(recommended_events, rec_ixs):
+                e['info'] = f'{round(preds[og_ix], 6)}'
 
     except Exception as e: print('error getting recs:', e)
 

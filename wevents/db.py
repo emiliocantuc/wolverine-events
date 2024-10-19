@@ -37,8 +37,6 @@ def get_events(db: sqlite3.Connection, event_ids: list[int], user_id:int = None)
             Id IN ({','.join('?' * len(event_ids))})
         GROUP BY 
             e.event_id, e.title, e.event_description, e.event_start, e.event_end, e.gcal_link, e.permalink, e.building_name
-        ORDER BY 
-            VoteDiff DESC
     """
 
     params = (*event_ids,) if user_id is None else (user_id, *event_ids)
@@ -191,7 +189,7 @@ def signin_user(db: sqlite3.Connection, email: str, n_clusters: int = 1000, sd: 
     user_id = cursor.lastrowid
 
     # Insert ratings for the new user
-    ratings = np.random.randn(n_clusters) * sd
+    ratings = np.zeros(n_clusters) #np.random.randn(n_clusters) * sd
     print('ratings', ratings.shape, ratings.mean())
     query_insert_ratings = "INSERT INTO user_ratings (user_id, ratings) VALUES (?, ?)"
     db.execute(query_insert_ratings, (user_id, ratings.tobytes()))
