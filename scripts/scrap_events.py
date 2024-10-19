@@ -2,9 +2,8 @@
 # Then obtains their embeddings and saves them to data/current_embeddings.npy
 # Mean to be ran weekly (fetches from weekly endpoint by default)
 
-import sqlite3, requests, argparse, os, time, json
+import sqlite3, requests, argparse, os, json
 from datetime import datetime
-import numpy as np
 import utils
 
 def get_events(url):
@@ -14,10 +13,8 @@ def get_events(url):
     assert 'json' in url, 'The url must be the JSON version of the events page'
 
     r = requests.get(url)
-    try:
-        return r.json()
-    except:
-        raise Exception('Could not parse events from the url. Make sure its the JSON version of the events page.')
+    try: return r.json()
+    except: raise Exception('Could not parse events from the url. Make sure its the JSON version of the events page.')
 
 def get_cal_links(events_json):
 
@@ -61,6 +58,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Fetches events from umich API, saves then to events table and updates statistics table')
     parser.add_argument('--eventsURL', type = str, help = 'Events json endpoint', default = 'https://events.umich.edu/week/json?v=2', required = False)
     parser.add_argument('--output_db', type = str, help = 'Output db file to save the events', default = 'data/main.db', required = False)
+    parser.add_argument('--current_events_json', type = str, help = 'JSON file w/current events', default = 'data/current_events.json', required = False)
     parser.add_argument('--notify', type = str, help = 'ntfy to notify status to if not empty', default = '', required = False)
     args = parser.parse_args()
 
@@ -70,7 +68,7 @@ if __name__ == '__main__':
     events = get_events(args.eventsURL)
     print(f'Found {len(events)} events. Getting calendar links ... ', end = '')
     get_cal_links(events)
-    with open('data/current_events.json', 'w+') as f: f.write(json.dumps(events))
+    with open(args.current_events_json, 'w+') as f: f.write(json.dumps(events))
     print('Done')
 
     print('Inserting events in db ... ', end = '')
