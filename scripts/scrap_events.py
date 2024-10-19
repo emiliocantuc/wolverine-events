@@ -61,9 +61,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Fetches events from umich API, saves then to events table and updates statistics table')
     parser.add_argument('--eventsURL', type = str, help = 'Events json endpoint', default = 'https://events.umich.edu/week/json?v=2', required = False)
     parser.add_argument('--output_db', type = str, help = 'Output db file to save the events', default = 'data/main.db', required = False)
-    parser.add_argument('--output_emb', type = str, help = 'Output npy file to save embeddings', default = 'data/current_embs.npy', required = False)
     parser.add_argument('--notify', type = str, help = 'ntfy to notify status to if not empty', default = '', required = False)
-    # parser.add_argument('--oai_key', type = str, help = 'OpenAI key to get embeddings', required = True)
     args = parser.parse_args()
 
     # Check if output db exists

@@ -9,7 +9,10 @@ In development. Hosted (sometimes) at [mywolverine.events](https://mywolverine.e
 GOOGLE_CLIENT_ID=[The app's client ID]
 SESSION_SECRET=[key used to sign sessions with. For example, generated w/openssl rand -hex 32]
 NTFY_CHANNEL=[ntfy.sh topic for maintenance notifications]
+
 ```
+Note: last line must be empy!
+
 2. Create `email_params.json` file with
 ```json
 {

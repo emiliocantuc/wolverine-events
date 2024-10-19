@@ -1,0 +1,9 @@
+# Simlinked cron file
+# Was simlinked with `ln -s /home/main/wolverine-events/cron.txt ~/.crontab`
+# To update the system's crontab when this file is changed run `crontab ~/.crontab`
+# Verify changes with `crontab -l`
+
+# m h  dom mon dow   command
+
+# Scrap events at 1 am (Eastern) Sundays, compute recommendations and send emails
+0 6 * * 0 cd /home/main/wolverine-events && sh update.sh

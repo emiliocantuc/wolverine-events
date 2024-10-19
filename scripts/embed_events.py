@@ -11,7 +11,6 @@ if __name__ == '__main__':
     parser.add_argument('--output_emb', type = str, help = 'Output npy file to save embeddings', default = 'data/current_embs.npy', required = False)
     args = parser.parse_args()
 
-
     # Get events from this week (nweek is maximum)
     conn = sqlite3.connect('data/main.db')
     query = '''
@@ -39,15 +38,15 @@ if __name__ == '__main__':
     print('Getting embeddings ... ', end = '')
     try:
 
-        # # Get embeddings
-        # to_embed = [utils.stringify_event(e) for e in events]
-        # embeddings = []
-        # for i in range(0, len(to_embed), 1000):
-        #     embeddings.extend(utils.get_embedding(to_embed[i:i + 1000], args.oai_key))
-        #     time.sleep(20)
+        # Get embeddings
+        to_embed = [utils.stringify_event(e) for e in events]
+        embeddings = []
+        for i in range(0, len(to_embed), 1000):
+            embeddings.extend(utils.get_embedding(to_embed[i:i + 1000], args.oai_key))
+            time.sleep(20)
         
-        # E = np.array([np.array(e) for e in embeddings])
-        # np.save(args.output_emb, E)
+        E = np.array([np.array(e) for e in embeddings])
+        np.save(args.output_emb, E)
         E = np.load(args.output_emb)
         print('Got embeddings shaped', E.shape)
 
