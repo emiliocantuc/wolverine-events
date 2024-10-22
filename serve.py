@@ -12,6 +12,13 @@ from google.auth.transport import requests
 import wevents.db as db_utils
 from wevents.utils import format_event, inv_distance_weights
 
+# Rec. params
+N_FEATURED = 25
+N_PERSONAL = 30
+INV_TEMP = 2.0  # inv. temperature of softmax weight calc. (0, inf). higher -> peakier weights
+BETA = 0.5      # lerp weight on past user_ratings [0, 1]. higher -> weighs past ratings more
+
+# Sign in stuff
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
 if GOOGLE_CLIENT_ID is None: print('WARNING: No google client ID found!')
 
@@ -66,7 +73,7 @@ def main():
     db = get_db()
     
     print('user', g.user)
-    featured_events = db_utils.get_top_events(db, 25, g.user)
+    featured_events = db_utils.get_top_events(db, N_FEATURED, g.user)
     featured_events = [format_event(e) for e in featured_events]
 
     # Compute recommended
@@ -75,26 +82,21 @@ def main():
         if g.user:
             current_events = db_utils.get_current_events(db)
             dists_to_centroids = np.array([e['dist_to_clusters'] for e in current_events])
-            weights = inv_distance_weights(dists_to_centroids)
+            weights = inv_distance_weights(dists_to_centroids, inv_temperature = INV_TEMP) # TODO recomputing weights here?
 
             user_ratings = db_utils.get_ratings(db, g.user)
             preds = weights @ user_ratings
             print(preds.min(), preds.mean(), preds.max())
 
-            # shift = (np.abs(preds.min()) if preds.min() < 0 else 0) + 1 # in case 0
-            # shifted_preds = preds + shift
-            # preds_prob = shifted_preds / shifted_preds.sum()
-            # sampled_ix = np.random.choice(len(preds), size=40, replace=False, p=preds_prob)
-            # recommended_events = sampled_ix
-
-            rec_ixs = (preds).argsort()[-50:][::-1] # ix in current_events
+            # Recommend events with highest predicted rating
+            rec_ixs = (-preds).argsort()[:N_FEATURED] # ix in current_events
 
             rec_og_ixs = [current_events[ix]['id'] for ix in rec_ixs]
             recommended_events = db_utils.get_events(db, rec_og_ixs, g.user)
             recommended_events = [format_event(e) for e in recommended_events]
 
             for e, og_ix in zip(recommended_events, rec_ixs):
-                e['info'] = f'{round(preds[og_ix], 6)}'
+                e['info'] = f'{np.where(rec_ixs == og_ix)[0][0]} {round(preds[og_ix], 6)}'
 
     except Exception as e: print('error getting recs:', e)
 
@@ -106,13 +108,15 @@ def main():
 @app.route('/vote', methods = ['PUT', 'POST'])
 def vote():
     try:
-        print(request.args)
         assert all([k in request.args for k in ('type', 'eventId', 'factor')])
         factor = float(request.args['factor'])
-        assert factor in [-1., 1., 2.]
+        assert factor in (-1., 1., 2.)
         db = get_db()
         db_utils.vote(db, g.user, request.args['eventId'], request.args['type'])
-        db_utils.update_user_ratings(db, g.user, request.args['eventId'], request.args['type'], factor)
+        db_utils.update_user_ratings(
+            db = db, user_id = g.user, event_id = request.args['eventId'],
+            update_factor = factor, inv_temperature = INV_TEMP, beta = BETA
+        )
         return 'ok'
     except Exception as e:
         print('Error voting: ', e)
@@ -120,7 +124,7 @@ def vote():
 
 @app.route('/prefs', methods = ['GET', 'PUT', 'DELETE'])
 def prefs():
-    if not g.user: return 'Error: not logged in'
+    if not g.user: return 'Please login first'
     
     db = get_db()
     if request.method == 'GET':

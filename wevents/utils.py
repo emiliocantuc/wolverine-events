@@ -37,7 +37,15 @@ def format_event(event):
     event['Subtitle'] = " | ".join([i for i in [event_type, start_time, event['BuildingName']] if i])
     return event
 
-def inv_distance_weights(distances, eps = 1e-5):
+
+def softmax(x):
+    # Applies softmax accross the rows of x
+    assert x.ndim == 2
+    e = (np.exp(x) - np.max(x, axis = 1, keepdims = True))
+    e /= e.sum(axis = 1, keepdims = True)
+    return e
+def inv_distance_weights(distances, inv_temperature = 1.0, eps = 1e-5):
     weights = (1 / (distances + eps))
-    weights /= weights.sum(axis=1)[:, np.newaxis]
+    weights = softmax(inv_temperature * weights)
+    # weights /= weights.sum(axis=1)[:, np.newaxis]
     return weights

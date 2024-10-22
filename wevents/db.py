@@ -108,7 +108,7 @@ def get_ratings(db: sqlite3.Connection, user_id: int) -> dict:
     results = cursor.fetchall()
     return np.frombuffer(results[0][0])
 
-def update_user_ratings(db: sqlite3.Connection, user_id: int, event_id: int, vote_type: str, update_factor: float):
+def update_user_ratings(db: sqlite3.Connection, user_id: int, event_id: int, update_factor: float, inv_temperature: float, beta: float):
     """
     Update the ratings array of a user based on the event's dists_to_clusters and the vote type.
     """
@@ -118,25 +118,23 @@ def update_user_ratings(db: sqlite3.Connection, user_id: int, event_id: int, vot
     # Get event and weights
     query_event = "SELECT dists_to_clusters FROM curr_event_embeddings WHERE event_id = ?"
     event_row = db.execute(query_event, (event_id,)).fetchone()
-    if event_row is None: raise ValueError(f"Event ID {event_id} not found.")
+    if event_row is None: raise ValueError(f'Event ID {event_id} not found.')
     dists_to_clusters = np.frombuffer(event_row[0])
-    weights = inv_distance_weights(dists_to_clusters[None, :]).squeeze()
+    weights = inv_distance_weights(dists_to_clusters[None, :], inv_temperature = inv_temperature).squeeze()
 
     # Get the user's current ratings (TODO could we save in session?)
     query_user_ratings = "SELECT ratings FROM user_ratings WHERE user_id = ?"
     user_row = db.execute(query_user_ratings, (user_id,)).fetchone()
     if user_row is None: raise ValueError(f"User ID {user_id} not found.")
     user_ratings = np.frombuffer(user_row[0])
-    print('user_ratings', user_ratings.shape, user_ratings.mean())
+    print('current user_ratings', user_ratings.shape, user_ratings.mean())
 
-    # Compute new rating
-    new_rating = user_ratings + (update_factor * weights)
+    # Compute new rating using exp. moving average
+    new_rating = beta * user_ratings + (1-beta) * (update_factor * weights)
+    
     print('change', (new_rating - user_ratings).mean(), np.abs(new_rating - user_ratings).max())
-
     query_update_ratings = "UPDATE user_ratings SET ratings = ? WHERE user_id = ?"
     db.execute(query_update_ratings, (new_rating.tobytes(), user_id))
-    
-    # Commit the changes
     db.commit()
 
     print(f"User {user_id}'s ratings updated successfully.")
@@ -172,7 +170,7 @@ def update_preference(db: sqlite3.Connection, user_id: int, pref_key: str, pref_
         db.commit()
     except sqlite3.Error as e: raise Exception(f"could not update preference {pref_key}: {e}")
 
-def signin_user(db: sqlite3.Connection, email: str, n_clusters: int = 1000, sd: float = 1e-4) -> tuple[int, bool]:
+def signin_user(db: sqlite3.Connection, email: str, n_clusters: int = 1000, unif_range: float = 1e-5) -> tuple[int, bool]:
     """
     Returns user_id given email for a user. If the user is new, adds the user and their ratings.
     Returns the user_id and a boolean indicating if the user is new.
@@ -189,12 +187,12 @@ def signin_user(db: sqlite3.Connection, email: str, n_clusters: int = 1000, sd: 
     user_id = cursor.lastrowid
 
     # Insert ratings for the new user
-    ratings = np.zeros(n_clusters) #np.random.randn(n_clusters) * sd
-    print('ratings', ratings.shape, ratings.mean())
+    ratings = np.random.uniform(-unif_range, unif_range, size = n_clusters) # TODO magic constant
     query_insert_ratings = "INSERT INTO user_ratings (user_id, ratings) VALUES (?, ?)"
     db.execute(query_insert_ratings, (user_id, ratings.tobytes()))
-    
     db.commit()
+    
+    print(f'New user {user_id} w/ratings mean/std: {ratings.mean():.4f}/{ratings.std():.4f}')
     return user_id, True
 
 

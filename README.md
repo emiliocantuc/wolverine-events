@@ -39,6 +39,8 @@ You received this email because you signed up to the site (https://mywolverine.e
 ## TODO
 - clean up code
 - find obvious speedups
+
 On recs:
 - Deduplicate events (if very similar will have very similar predicted scores)
 - diversify feed (w/clusters?)
+- user specific beta and temperature params? principled way to set them?
