@@ -16,7 +16,7 @@ from wevents.utils import format_event, inv_distance_weights
 N_FEATURED = 25
 N_PERSONAL = 30
 INV_TEMP = 2.0  # inv. temperature of softmax weight calc. (0, inf). higher -> peakier weights
-BETA = 0.5      # lerp weight on past user_ratings [0, 1]. higher -> weighs past ratings more
+BETA = 0.8      # lerp weight on past user_ratings [0, 1]. higher -> weighs past ratings more
 
 # Sign in stuff
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
@@ -96,7 +96,7 @@ def main():
             recommended_events = [format_event(e) for e in recommended_events]
 
             for e, og_ix in zip(recommended_events, rec_ixs):
-                e['info'] = f'{np.where(rec_ixs == og_ix)[0][0]} {round(preds[og_ix], 6)}'
+                e['info'] = f'rank: {np.where(rec_ixs == og_ix)[0][0]} pred: {round(preds[og_ix], 6)}'
 
     except Exception as e: print('error getting recs:', e)
 
