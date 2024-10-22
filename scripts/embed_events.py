@@ -1,4 +1,4 @@
-import sqlite3, json, time, argparse
+import sqlite3, json, time, argparse, logging
 import numpy as np
 from sklearn.metrics.pairwise import euclidean_distances
 
@@ -10,6 +10,7 @@ if __name__ == '__main__':
     parser.add_argument('--oai_key', type = str, help = 'OpenAI key to get embeddings', required = True)
     parser.add_argument('--output_emb', type = str, help = 'Output npy file to save embeddings', default = 'data/current_embs.npy', required = False)
     args = parser.parse_args()
+    logging.basicConfig(level = logging.INFO, format = '%(asctime)s - %(levelname)s - %(message)s')
 
     # Get events from this week (nweek is maximum)
     conn = sqlite3.connect('data/main.db')
@@ -21,12 +22,12 @@ if __name__ == '__main__':
     cursor.execute(query)
     event_ids = cursor.fetchall()
     event_ids = {e[1]: e[0] for e in event_ids} # umich id -> our id
-    print(f'Found {len(event_ids)} events')
+    logging.info(f'Found {len(event_ids)} events')
 
     # Load current events
     with open('data/current_events.json', 'r') as f:
         events = json.load(f)
-        print(f'Loaded {len(events)} events from current_events.json')
+        logging.info(f'Loaded {len(events)} events from current_events.json')
     
 
     # Load centroids
@@ -35,7 +36,7 @@ if __name__ == '__main__':
     assert len(events) == len(event_ids), f'Number of events in current_events.json {len(events)} and events table {len(event_ids)} do not match'
 
     # Get embeddings
-    print('Getting embeddings ... ', end = '')
+    logging.info('Getting embeddings ... ')
     try:
 
         # Get embeddings
@@ -48,16 +49,16 @@ if __name__ == '__main__':
         E = np.array([np.array(e) for e in embeddings])
         np.save(args.output_emb, E)
         E = np.load(args.output_emb)
-        print('Got embeddings shaped', E.shape)
+        logging.info(f'Got embeddings shaped: {E.shape}')
 
         # Get distances to centroids
         dists_to_centroids = euclidean_distances(E, centroids)
-        print('Got distances to centroids shaped', dists_to_centroids.shape)
+        logging.info(f'Got distances to centroids shaped: {dists_to_centroids.shape}')
 
         # Clear curr_event_embeddings table
         cursor = conn.cursor()
         cursor.execute('DELETE FROM curr_event_embeddings;')
-        print('Cleared curr_event_embeddings table')
+        logging.info('Cleared curr_event_embeddings table')
 
         # Insert new embeddings into curr_event_embeddings table
         for event, emb, dists in zip(events, E, dists_to_centroids):
@@ -68,9 +69,9 @@ if __name__ == '__main__':
             ''', (our_id, emb.tobytes(), dists.tobytes()))
 
         conn.commit()
-        print('Inserted new embeddings into curr_event_embeddings table')
+        logging.info('Inserted new embeddings into curr_event_embeddings table')
     
     except Exception as e:
-        print('Error getting embeddings:', e)
+        logging.error(f'Error getting embeddings: {e}')
         if args.notify: utils.notify(args.notify, f'Error getting embeddings: {e}', args.eventsURL)
         exit(1)

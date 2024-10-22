@@ -37,10 +37,12 @@ function doGet(e) {
 }
 """
 
-import requests, os, json
+import requests, os, json, logging
 import utils
 
 if __name__ == '__main__':
+    
+    logging.basicConfig(level = logging.INFO, format = '%(asctime)s - %(levelname)s - %(message)s')    
 
     # Should contain 4 fields: 
     # 'token', 'url' (of the deployed app script), 'recipient', and 'subject' 
@@ -51,7 +53,7 @@ if __name__ == '__main__':
 
     try:
 
-        print('Trying to send email ...')
+        logging.info('Trying to send email ...')
 
         with open(params_file, 'r') as f: params = json.loads(f.read())
         with open(body_file, 'r') as f: body = f.read()
@@ -59,16 +61,16 @@ if __name__ == '__main__':
         url = params['url']
         del params['url']
         params['body'] = body
-        print(params)
+        logging.info(params)
 
         response = requests.get(url, params = params)
-        print(response.text)
+        logging.info(f'response: {response.text}')
         
         if not response.text or 'not' in response.text:
-            print('Error trying to send email: ', response, response.text)
+            logging.error(f'Error trying to send email: {response} {response.text}')
             if ntfy_channel: utils.notify(ntfy_channel, f'Could not send email reminder')
     
     except Exception as e:
         
-        print('Error trying to send email: ', e)
+        logging.error(f'Error trying to send email: {e}')
         if ntfy_channel: utils.notify(ntfy_channel, f'Could not send email reminder')

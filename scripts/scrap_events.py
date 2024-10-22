@@ -2,7 +2,7 @@
 # Then obtains their embeddings and saves them to data/current_embeddings.npy
 # Mean to be ran weekly (fetches from weekly endpoint by default)
 
-import sqlite3, requests, argparse, os, json
+import sqlite3, requests, argparse, os, json, logging
 from datetime import datetime
 import utils
 
@@ -61,17 +61,18 @@ if __name__ == '__main__':
     parser.add_argument('--current_events_json', type = str, help = 'JSON file w/current events', default = 'data/current_events.json', required = False)
     parser.add_argument('--notify', type = str, help = 'ntfy to notify status to if not empty', default = '', required = False)
     args = parser.parse_args()
+    logging.basicConfig(level = logging.INFO, format = '%(asctime)s - %(levelname)s - %(message)s')
 
     # Check if output db exists
     assert os.path.exists(os.path.dirname(args.output_db)), 'The output db does not exist'
     
     events = get_events(args.eventsURL)
-    print(f'Found {len(events)} events. Getting calendar links ... ', end = '')
+    logging.info(f'Found {len(events)} events. Getting calendar links ... ')
     get_cal_links(events)
     with open(args.current_events_json, 'w+') as f: f.write(json.dumps(events))
-    print('Done')
+    logging.info('Done')
 
-    print('Inserting events in db ... ', end = '')
+    logging.info('Inserting events in db ...')
     conn = sqlite3.connect(args.output_db)
     cursor = conn.cursor()
 
@@ -82,7 +83,7 @@ if __name__ == '__main__':
         cursor.execute('SELECT MAX(nweek) FROM events;')
         max_nweek = cursor.fetchone()[0] or 0 
         nweek = max_nweek + 1
-        print(f'nweek = {nweek} ', end = '')
+        logging.info(f'got nweek = {nweek}')
 
         # Insert events
         for event in events:
@@ -99,7 +100,7 @@ if __name__ == '__main__':
         # Get the number of users
         cursor.execute('SELECT COUNT(*) FROM users;')
         nusers = cursor.fetchone()[0]
-        print(f'nusers = {nusers} ', end='')
+        logging.info(f'got nusers = {nusers}')
 
         # Insert into the statistics table
         cursor.execute('''
@@ -108,12 +109,12 @@ if __name__ == '__main__':
         ''', (nweek, nusers, len(events)))
 
         conn.commit()
-        print('Committed')
+        logging.info('Committed')
         if args.notify: utils.notify(args.notify, f'Successfully scrapped {len(events)} events for week {nweek}', args.eventsURL)
 
     except Exception as e:
         conn.rollback()
-        print('Error saving events:', e)
+        logging.error('Error saving events:', e)
         if args.notify: utils.notify(args.notify, f'Error scrapping events: {e}', args.eventsURL)
         exit(1)
     
