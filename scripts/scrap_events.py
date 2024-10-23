@@ -76,8 +76,9 @@ if __name__ == '__main__':
     try:
         cursor.execute('BEGIN TRANSACTION;')
 
-        # Drop past events
+        # Drop past events and votes
         cursor.execute('DELETE FROM events;')
+        cursor.execute('DELETE FROM votes;')
 
         # Insert events
         for event in events:

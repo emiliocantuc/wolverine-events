@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS users (
     user_id INTEGER PRIMARY KEY AUTOINCREMENT,
     email VARCHAR(100) NOT NULL UNIQUE,
-    cluster_ratings BLOB                  -- To store the ratings array as binary data
+    cluster_ratings BLOB,                  -- To store the ratings array as binary data
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

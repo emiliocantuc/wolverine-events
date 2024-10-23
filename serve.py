@@ -73,26 +73,27 @@ def main():
     db = get_db()
     
     print('user', g.user)
-    featured_events = db_utils.get_top_events(db, N_FEATURED, g.user)
+    featured_events = db_utils.get_top_events(db = db, limit = N_FEATURED, user_id = g.user)
     featured_events = [format_event(e) for e in featured_events]
 
     # Compute recommended
     recommended_events = None
     try:
         if g.user:
-            current_events = db_utils.get_current_events(db)
-            dists_to_centroids = np.array([e['dist_to_clusters'] for e in current_events])
-            weights = inv_distance_weights(dists_to_centroids, inv_temperature = INV_TEMP) # TODO recomputing weights here?
 
-            user_ratings = db_utils.get_ratings(db, g.user)
+            events = db_utils.get_event_blobs(db = db)
+            ids = np.array([e['id'] for e in events])
+            dists_to_centroids = np.array([e['dist_to_clusters'] for e in events])
+            weights = inv_distance_weights(dists_to_centroids, inv_temperature = INV_TEMP) # TODO recomputing weights here?
+        
+            user_ratings = db_utils.get_ratings(db = db, user_id = g.user)
             preds = weights @ user_ratings
             print(preds.min(), preds.mean(), preds.max())
 
             # Recommend events with highest predicted rating
             rec_ixs = (-preds).argsort()[:N_FEATURED] # ix in current_events
 
-            rec_og_ixs = [current_events[ix]['id'] for ix in rec_ixs]
-            recommended_events = db_utils.get_events(db, rec_og_ixs, g.user)
+            recommended_events = db_utils.get_events_by_ids(db = db, event_ids = ids[rec_ixs].tolist(), user_id = g.user)
             recommended_events = [format_event(e) for e in recommended_events]
 
             for e, og_ix in zip(recommended_events, rec_ixs):
@@ -112,7 +113,7 @@ def vote():
         factor = float(request.args['factor'])
         assert factor in (-1., 1., 2.)
         db = get_db()
-        db_utils.vote(db, g.user, request.args['eventId'], request.args['type'])
+        db_utils.vote(db = db, user_id = g.user, event_id = request.args['eventId'], vote_type = request.args['type'])
         db_utils.update_user_ratings(
             db = db, user_id = g.user, event_id = request.args['eventId'],
             update_factor = factor, inv_temperature = INV_TEMP, beta = BETA
@@ -129,7 +130,7 @@ def prefs():
     db = get_db()
     if request.method == 'GET':
         try:
-            prefs = db_utils.get_preferences(db, g.user)
+            prefs = db_utils.get_preferences(db = db, user_id = g.user)
             return render_template('prefs.html', prefs = prefs)
         except Exception as e:
             print(f'Error getting preferences: {e}')
@@ -137,7 +138,7 @@ def prefs():
     
     if request.method == 'DELETE':
         try:
-            db_utils.delete_user(db, g.user)
+            db_utils.delete_user(db = db, user_id = g.user)
             session.pop('user_id', None)
             return 'Successfully deleted account. Close tab to exit.'
         except Exception as e:
@@ -145,5 +146,5 @@ def prefs():
             return "An error occurred. Please <a href=\"mailto:emilio@mywolverine.events\">email support</a>."
     
     key, value = next(request.form.items())
-    db_utils.update_preference(db, g.user, key, value)
+    db_utils.update_preference(db = db, user_id = g.user, pref_key = key, pref_value = value)
     return 'Saved'
