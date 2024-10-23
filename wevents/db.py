@@ -100,7 +100,7 @@ def get_top_events(db, limit, user_id = None):
     return [dict(zip(keys, row)) for row in results]
 
 def get_event_blobs_and_gen_info(db: sqlite3.Connection):
-    query = 'SELECT event_id, emb, dists_to_clusters, title, event_description FROM events'
+    query = 'SELECT event_id, emb, dists_to_clusters, title, event_description FROM events WHERE event_end > CURRENT_DATE'
     cursor = db.cursor()
     cursor.execute(query)
     results = cursor.fetchall()

@@ -90,7 +90,7 @@ def main():
             preds = weights @ user_ratings
 
             # Recommend events with highest predicted rating
-            rec_ixs = (-preds).argsort()[:N_FEATURED] # ix in current_events
+            rec_ixs = (-preds).argsort()[:N_PERSONAL] # ix in current_events
 
             recommended_events = db_utils.get_events_by_ids(db = db, event_ids = ids[rec_ixs].tolist(), user_id = g.user)
             recommended_events = [format_event(e) for e in recommended_events]
