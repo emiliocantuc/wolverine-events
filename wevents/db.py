@@ -5,7 +5,7 @@ from datetime import datetime
 from wevents.utils import inv_distance_weights
 
 ######################################### EVENTS #########################################
-def get_events_by_ids(db: sqlite3.Connection, event_ids: list[int], user_id:int = None):
+def get_events_where(db: sqlite3.Connection, where: str, user_id:int = None, *where_args):
     # Dynamically determine the UserVote part of the query
     user_vote_part = """,
         CASE 
@@ -35,18 +35,23 @@ def get_events_by_ids(db: sqlite3.Connection, event_ids: list[int], user_id:int 
             votes v ON e.event_id = v.event_id
         {"LEFT JOIN votes uv ON e.event_id = uv.event_id AND uv.user_id = ?" if user_id is not None else ""}
         WHERE
-            Id IN ({','.join('?' * len(event_ids))})
+            {where}
         GROUP BY 
             e.event_id, e.title, e.event_description, e.event_start, e.event_end, e.gcal_link, e.permalink, e.building_name
     """
-
-    params = (*event_ids,) if user_id is None else (user_id, *event_ids)
+    params = (*where_args,) if user_id is None else (user_id, *where_args)
     cursor = db.execute(query, params)
     results = cursor.fetchall()
 
     keys = ['Id', 'Title', 'EventType', 'Description', 'StartDate', 'EndDate', 'Cluster', 'VoteDiff', 'CalendarLink', 'PermaLink', 'BuildingName']
     if user_id is not None: keys.append('UserVote')
     return [dict(zip(keys, row)) for row in results]
+
+def get_events_by_ids(db: sqlite3.Connection, event_ids: list[int], user_id:int = None):
+    return get_events_where(db, f"Id IN ({','.join('?' * len(event_ids))})", user_id, *event_ids)
+
+def get_events_by_cluster(db: sqlite3.Connection, cluster_id: list[int], user_id:int = None):
+    return get_events_where(db, f"Cluster = ?", user_id, cluster_id)
 
 
 def get_top_events(db, limit, user_id = None):

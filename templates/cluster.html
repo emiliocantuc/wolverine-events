@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cluster {{ cluster }}</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-DQJSM8QBBQ"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-DQJSM8QBBQ');
+    </script>
+</head>
+
+<body>
+
+    <ul class="nav justify-content-center">
+        <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('main') }}">Home</a>
+        </li>
+        {% if g.user %}
+        <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('prefs') }}">Preferences</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+        </li>
+        {% endif %}
+    </ul>
+
+
+    <header class="text-center" style="padding-top:64px;padding-bottom:48px;">
+        <h2>Cluster {{ cluster }}</h2>
+        <p>Displaying ({{ events|length }}) events closest to the cluster's centroid</p>
+    </header>
+
+    {% if events %}
+    <div class="container p-0">
+        <div class="card-deck">
+
+            {% for event in events %}
+            {% import 'event_card.html' as eventCards %}
+            {{ eventCards.eventCard(event) }}
+            {% endfor %}
+
+        </div>
+    </div>
+    {% else %}
+    <div class="container text-center">
+        <p>No events in this cluster found. Could be because we found no matches this week or there is an error. </p>
+    </div>
+    {% endif %}
+
+    <footer class="text-center py-3 mt-5">
+        <p>
+            Built by <a href="https://emiliocantuc.github.io/">me</a>.
+            Code openly <a href="https://github.com/emiliocantuc/my-wolverine-events">available</a>.
+            Recommendations welcome <a href="mailto:emilio@mywolverine.events">here</a>.
+        </p>
+    </footer>
+
+    <script>
+        function toggleVoteButtons(event_id, dir, hx_div) {
+            
+            let upButtons = document.getElementsByName(event_id + '_up');
+            let downButtons = document.getElementsByName(event_id + '_down');
+            let counters = document.getElementsByName(event_id + '_count');
+            let counterInt = parseInt(counters[0].textContent, 10);
+            let upSelected = upButtons[0].classList.contains('text-warning');
+            let downSelected = downButtons[0].classList.contains('text-warning');
+            let url = '';
+
+            console.log(upButtons)
+            // If we clicked upvote and up was not selected
+            if (dir == 'up' && !upSelected) {
+                for(let i = 0; i < counters.length; i++){
+                    console.log(i, upButtons[i].classList)
+                    upButtons[i].classList.add('text-warning');
+                    downButtons[i].classList.remove('text-warning');
+                    counters[i].textContent = counterInt + (downSelected ? 2: 1);
+                }
+                url = `/vote?eventId=${event_id}&type=U&factor=1`;
+            }
+            // We clicked up but it was already selected
+            else if (dir == 'up' && upSelected) {
+                for(let i = 0; i < counters.length; i++){
+                    upButtons[i].classList.remove('text-warning');
+                    counters[i].textContent = counterInt - 1;
+                }
+                url = `/vote?eventId=${event_id}&type=N&factor=-1`;
+            }
+            // We clicked down and it was not selected
+            else if (dir == 'down' && !downSelected) {
+                for(let i = 0; i < counters.length; i++){
+                    upButtons[i].classList.remove('text-warning');
+                    downButtons[i].classList.add('text-warning');
+                    counters[i].textContent = counterInt - (upSelected ? 2: 1);
+                }
+                url = `/vote?eventId=${event_id}&type=D&factor=-1`;
+            }
+            // Clicked down and it was already selected
+            else if (dir == 'down' && downSelected) {
+                for(let i = 0; i < counters.length; i++){
+                    downButtons[i].classList.remove('text-warning');
+                    counters[i].textContent = counterInt + 1;
+                }
+                url = `/vote?eventId=${event_id}&type=N&factor=1`;
+            }
+            fetch(url, { method: 'PUT' });
+        }
+    </script>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+
+</html>

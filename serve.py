@@ -147,3 +147,24 @@ def prefs():
     key, value = next(request.form.items())
     db_utils.update_preference(db = db, user_id = g.user, pref_key = key, pref_value = value)
     return 'Saved'
+
+@app.route('/cluster/<id>', methods = ['GET', 'PUT'])
+def cluster(id = None):
+
+    if id is None: redirect(url_for('main'))
+
+    db = get_db()
+    if request.method == 'GET':
+        try:
+            events = db_utils.get_events_by_cluster(db = db, cluster_id = id, user_id = g.user)
+            events = [format_event(e) for e in events]
+            print(len(events))
+            return render_template('cluster.html', cluster = id, events = events)
+        except Exception as e:
+            print(f'Error getting preferences: {e}')
+            return "An error occurred. Please try again later."
+    
+    if request.method == 'PUT':
+        pass
+    
+    return 'ok'
