@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stats</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-DQJSM8QBBQ"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-DQJSM8QBBQ');
+    </script>
+</head>
+
+<body>
+
+    <ul class="nav justify-content-center">
+        <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('main') }}">Home</a>
+        </li>
+        {% if g.user %}
+        <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('prefs') }}">Preferences</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+        </li>
+        {% endif %}
+    </ul>
+
+    <br><br>
+
+    <div class="container p-0">
+        <h2>Statistics</h2>
+        <p>
+            For the last 5 weeks:
+            <table class="table">
+                <tr><td>Week</td><td>Users</td><td>Events</td></tr>
+                {% for stat in stats %}
+                <tr><td>{{ stat.nweek }}</td><td>{{ stat.nusers}}</td><td>{{ stat.nevents}}</td></tr>
+                {% endfor %}
+            </table>
+        </p>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+
+</html>

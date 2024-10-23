@@ -227,3 +227,10 @@ def vote(db: sqlite3.Connection, user_id: int, event_id: int, vote_type: str) ->
     db.execute(query, (user_id, event_id, vote_type, datetime.now()))
     db.commit()
 
+
+def get_stats(db: sqlite3.Connection) -> dict:
+    query = 'SELECT nweek, nusers, nevents FROM statistics ORDER BY nweek LIMIT 5;'
+    results = db.execute(query).fetchall()
+    if results is None: raise Exception(f"No statistics found.")
+    return [dict(zip(['nweek', 'nusers', 'nevents'], row)) for row in results]
+

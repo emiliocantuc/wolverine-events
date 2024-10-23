@@ -168,3 +168,15 @@ def cluster(id = None):
         pass
     
     return 'ok'
+
+@app.route('/stats', methods = ['GET'])
+def stats():
+
+    db = get_db()
+    try:
+        stats = db_utils.get_stats(db)
+        print(stats)
+        return render_template('stats.html', stats = stats)
+    except Exception as e:
+        print(f'Error getting preferences: {e}')
+        return "An error occurred. Please try again later."
