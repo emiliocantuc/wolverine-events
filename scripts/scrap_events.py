@@ -68,6 +68,7 @@ if __name__ == '__main__':
     events = get_events(args.eventsURL)
     logging.info(f'Found {len(events)} events. Getting calendar links ... ')
     get_cal_links(events)
+    # with open('data/current_events.json', 'r') as f: events = json.loads(f.read())
 
     logging.info('Got cal links. Inserting events in db ...')
     conn = sqlite3.connect(args.db)

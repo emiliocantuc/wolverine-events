@@ -14,7 +14,7 @@ from wevents.utils import format_event, inv_distance_weights
 
 # Rec. params
 N_FEATURED = 25
-N_PERSONAL = 30
+N_PERSONAL = 35
 INV_TEMP = 2.0  # inv. temperature of softmax weight calc. (0, inf). higher -> peakier weights
 BETA = 0.8      # lerp weight on past user_ratings [0, 1]. higher -> weighs past ratings more
 
@@ -81,14 +81,13 @@ def main():
     try:
         if g.user:
 
-            events = db_utils.get_event_blobs(db = db)
+            events = db_utils.get_event_blobs_and_gen_info(db = db)
             ids = np.array([e['id'] for e in events])
             dists_to_centroids = np.array([e['dist_to_clusters'] for e in events])
             weights = inv_distance_weights(dists_to_centroids, inv_temperature = INV_TEMP) # TODO recomputing weights here?
-        
+
             user_ratings = db_utils.get_ratings(db = db, user_id = g.user)
             preds = weights @ user_ratings
-            print(preds.min(), preds.mean(), preds.max())
 
             # Recommend events with highest predicted rating
             rec_ixs = (-preds).argsort()[:N_FEATURED] # ix in current_events

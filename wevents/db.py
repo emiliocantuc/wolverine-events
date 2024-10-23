@@ -23,6 +23,7 @@ def get_events_by_ids(db: sqlite3.Connection, event_ids: list[int], user_id:int 
             e.event_description AS Description,
             e.event_start AS StartDate,
             e.event_end AS EndDate,
+            e.cluster AS Cluster,
             COALESCE(SUM(CASE WHEN v.vote_type = 'U' THEN 1 ELSE 0 END), 0) - 
             COALESCE(SUM(CASE WHEN v.vote_type = 'D' THEN 1 ELSE 0 END), 0) AS VoteDiff,
             e.gcal_link AS CalendarLink,
@@ -43,7 +44,7 @@ def get_events_by_ids(db: sqlite3.Connection, event_ids: list[int], user_id:int 
     cursor = db.execute(query, params)
     results = cursor.fetchall()
 
-    keys = ['Id', 'Title', 'EventType', 'Description', 'StartDate', 'EndDate', 'VoteDiff', 'CalendarLink', 'PermaLink', 'BuildingName']
+    keys = ['Id', 'Title', 'EventType', 'Description', 'StartDate', 'EndDate', 'Cluster', 'VoteDiff', 'CalendarLink', 'PermaLink', 'BuildingName']
     if user_id is not None: keys.append('UserVote')
     return [dict(zip(keys, row)) for row in results]
 
@@ -68,6 +69,7 @@ def get_top_events(db, limit, user_id = None):
             e.event_description AS Description,
             e.event_start AS StartDate,
             e.event_end AS EndDate,
+            e.cluster AS Cluster,
             COALESCE(SUM(CASE WHEN v.vote_type = 'U' THEN 1 ELSE 0 END), 0) - 
             COALESCE(SUM(CASE WHEN v.vote_type = 'D' THEN 1 ELSE 0 END), 0) AS VoteDiff,
             e.gcal_link AS CalendarLink,
@@ -88,16 +90,16 @@ def get_top_events(db, limit, user_id = None):
     cursor = db.execute(query, params)
     results = cursor.fetchall()
 
-    keys = ['Id', 'Title', 'EventType', 'Description', 'StartDate', 'EndDate', 'VoteDiff', 'CalendarLink', 'PermaLink', 'BuildingName']
+    keys = ['Id', 'Title', 'EventType', 'Description', 'StartDate', 'EndDate', 'Cluster', 'VoteDiff', 'CalendarLink', 'PermaLink', 'BuildingName']
     if user_id is not None: keys.append('UserVote')
     return [dict(zip(keys, row)) for row in results]
 
-def get_event_blobs(db: sqlite3.Connection):
-    query = 'SELECT event_id, emb, dists_to_clusters FROM events'
+def get_event_blobs_and_gen_info(db: sqlite3.Connection):
+    query = 'SELECT event_id, emb, dists_to_clusters, title, event_description FROM events'
     cursor = db.cursor()
     cursor.execute(query)
     results = cursor.fetchall()
-    return [{'id': row[0], 'emb': np.frombuffer(row[1]), 'dist_to_clusters': np.frombuffer(row[2])} for row in results]
+    return [{'id': row[0], 'emb': np.frombuffer(row[1]), 'dist_to_clusters': np.frombuffer(row[2]), 'title': row[3], 'event_description': row[4]} for row in results]
 
 ########################################## USER ##########################################
 def get_ratings(db: sqlite3.Connection, user_id: int) -> dict:

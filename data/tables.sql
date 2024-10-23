@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS events (
     event_id INTEGER PRIMARY KEY AUTOINCREMENT,
     emb BLOB,
     dists_to_clusters BLOB,
+    cluster INT,
     title VARCHAR(100) NOT NULL,
     to_embed TEXT,
     event_description TEXT,
