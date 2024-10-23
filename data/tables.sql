@@ -4,6 +4,7 @@
 CREATE TABLE IF NOT EXISTS users (
     user_id INTEGER PRIMARY KEY AUTOINCREMENT,
     email VARCHAR(100) NOT NULL UNIQUE,
+    cluster_ratings BLOB                  -- To store the ratings array as binary data
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -19,8 +20,10 @@ CREATE TABLE IF NOT EXISTS preferences (
 
 CREATE TABLE IF NOT EXISTS events (
     event_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nweek INTEGER,
+    emb BLOB,
+    dists_to_clusters BLOB,
     title VARCHAR(100) NOT NULL,
+    to_embed TEXT,
     event_description TEXT,
     event_start DATETIME,
     event_end DATETIME,
@@ -44,28 +47,15 @@ CREATE TABLE IF NOT EXISTS votes (
     FOREIGN KEY (event_id) REFERENCES events(event_id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS user_ratings (
-    user_id INTEGER PRIMARY KEY,
-    ratings BLOB                  -- To store the ratings array as binary data
-);
-
-CREATE TABLE IF NOT EXISTS curr_event_embeddings (
-    event_id INTEGER PRIMARY KEY,
-    emb BLOB,
-    dists_to_clusters BLOB
-);
-
 
 CREATE TABLE IF NOT EXISTS statistics (
-    nweek INT PRIMARY KEY,
+    nweek INTEGER PRIMARY KEY AUTOINCREMENT,
     nusers INT,
     nevents INT
 );
 
-INSERT INTO statistics (nweek, nusers, nevents) VALUES (0, 0, 0);
-
 -- Auto create preferences for new user
-CREATE TRIGGER after_user_insert
+CREATE TRIGGER IF NOT EXISTS after_user_insert
 AFTER INSERT ON users
 FOR EACH ROW
 BEGIN
@@ -73,9 +63,9 @@ BEGIN
 END;
 
 -- Indexing
-CREATE INDEX idx_user_id ON votes (user_id);
-CREATE INDEX idx_event_id ON votes (event_id);
-CREATE INDEX idx_vote_type ON votes (vote_type);
+CREATE INDEX IF NOT EXISTS idx_user_id ON votes (user_id);
+CREATE INDEX IF NOT EXISTS idx_event_id ON votes (event_id);
+CREATE INDEX IF NOT EXISTS idx_vote_type ON votes (vote_type);
 
 -- Disable caching? (TODO: check if necessary)
 PRAGMA cache_size = 0;

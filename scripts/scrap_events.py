@@ -28,11 +28,11 @@ def get_cal_links(events_json):
 
 def insert_event(cursor, event):
     cursor.execute('''
-    INSERT INTO events (nweek, title, event_description, event_start, event_end, type, permalink, building_name, building_id, gcal_link, umich_id)
+    INSERT INTO events (title, to_embed, event_description, event_start, event_end, type, permalink, building_name, building_id, gcal_link, umich_id)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
-        event.get('nweek'),
         event.get('combined_title'),
+        event.get('to_embed'),
         event.get('description'),
         event.get('datetime_start'),
         event.get('datetime_end'),
@@ -57,45 +57,39 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description = 'Fetches events from umich API, saves then to events table and updates statistics table')
     parser.add_argument('--eventsURL', type = str, help = 'Events json endpoint', default = 'https://events.umich.edu/week/json?v=2', required = False)
-    parser.add_argument('--output_db', type = str, help = 'Output db file to save the events', default = 'data/main.db', required = False)
+    parser.add_argument('--db', type = str, help = 'path to db file', default = 'data/main.db', required = False)
     parser.add_argument('--current_events_json', type = str, help = 'JSON file w/current events', default = 'data/current_events.json', required = False)
     parser.add_argument('--notify', type = str, help = 'ntfy to notify status to if not empty', default = '', required = False)
     args = parser.parse_args()
     logging.basicConfig(level = logging.INFO, format = '%(asctime)s - %(levelname)s - %(message)s')
 
-    # Check if output db exists
-    assert os.path.exists(os.path.dirname(args.output_db)), 'The output db does not exist'
+    assert os.path.exists(os.path.dirname(args.db)), 'The output db does not exist'
     
     events = get_events(args.eventsURL)
     logging.info(f'Found {len(events)} events. Getting calendar links ... ')
     get_cal_links(events)
-    with open(args.current_events_json, 'w+') as f: f.write(json.dumps(events))
-    logging.info('Done')
 
-    logging.info('Inserting events in db ...')
-    conn = sqlite3.connect(args.output_db)
+    logging.info('Got cal links. Inserting events in db ...')
+    conn = sqlite3.connect(args.db)
     cursor = conn.cursor()
 
     try:
         cursor.execute('BEGIN TRANSACTION;')
 
-        # Get the week number
-        cursor.execute('SELECT MAX(nweek) FROM events;')
-        max_nweek = cursor.fetchone()[0] or 0 
-        nweek = max_nweek + 1
-        logging.info(f'got nweek = {nweek}')
+        # Drop past events
+        cursor.execute('DELETE FROM events;')
 
         # Insert events
         for event in events:
-            tmp_event = {k:v for k,v in event.items()}
-            tmp_event['nweek'] = nweek
-            tmp_event['datetime_start'] = convert_to_sql_datetime(tmp_event['datetime_start'])
-            try:
-                tmp_event['datetime_end'] = convert_to_sql_datetime(tmp_event['datetime_end'])
-            except:
-                tmp_event['datetime_end'] = ''
 
-            insert_event(conn, tmp_event)
+            event['to_embed'] = utils.stringify_event(event)
+            event['datetime_start'] = convert_to_sql_datetime(event['datetime_start'])
+            try:
+                event['datetime_end'] = convert_to_sql_datetime(event['datetime_end'])
+            except:
+                event['datetime_end'] = ''
+
+            insert_event(cursor, event)
 
         # Get the number of users
         cursor.execute('SELECT COUNT(*) FROM users;')
@@ -104,9 +98,10 @@ if __name__ == '__main__':
 
         # Insert into the statistics table
         cursor.execute('''
-            INSERT INTO statistics (nweek, nusers, nevents)
-            VALUES (?, ?, ?);
-        ''', (nweek, nusers, len(events)))
+            INSERT INTO statistics (nusers, nevents)
+            VALUES (?, ?);
+        ''', (nusers, len(events)))
+        nweek  = cursor.lastrowid
 
         conn.commit()
         logging.info('Committed')
