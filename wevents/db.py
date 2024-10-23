@@ -48,10 +48,10 @@ def get_events_where(db: sqlite3.Connection, where: str, user_id:int = None, *wh
     return [dict(zip(keys, row)) for row in results]
 
 def get_events_by_ids(db: sqlite3.Connection, event_ids: list[int], user_id:int = None):
-    return get_events_where(db, f"Id IN ({','.join('?' * len(event_ids))})", user_id, *event_ids)
+    return get_events_where(db, f"Id IN ({','.join('?' * len(event_ids))}) AND e.event_end > CURRENT_DATE", user_id, *event_ids)
 
 def get_events_by_cluster(db: sqlite3.Connection, cluster_id: list[int], user_id:int = None):
-    return get_events_where(db, f"Cluster = ?", user_id, cluster_id)
+    return get_events_where(db, "Cluster = ? AND e.event_end > CURRENT_DATE", user_id, cluster_id)
 
 
 def get_top_events(db, limit, user_id = None):

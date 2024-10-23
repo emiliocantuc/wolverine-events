@@ -9,4 +9,4 @@ while IFS='=' read -r key value; do
 done < "$ENV_FILE"
 
 # Scrap and embed events, then send email
-python3 -u scripts/scrap_events.py >> scripts/scrap.log 2>&1 && python3 -u scripts/embed_events.py --oai_key "$OAI_KEY" >> scripts/embed.log 2>&1 # && python3 -u scripts/send_email.py >> scripts/email.log 2>&1
+python3 -u scripts/scrap_events.py >> scripts/scrap.log 2>&1 && python3 -u scripts/embed_events.py --oai_key "$OAI_KEY" >> scripts/embed.log 2>&1 && python3 -u scripts/send_email.py >> scripts/email.log 2>&1
