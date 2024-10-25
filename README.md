@@ -1,5 +1,6 @@
 # wolverine-events
-A recommender system for University of Michigan events.
+
+A simple content-based filtering recommender system for University of Michigan events. Write-up [here](https://emiliocantuc.github.io/posts/posts/wolv-events/).
 
 In development. Hosted (sometimes) at [mywolverine.events](https://mywolverine.events/).
 
@@ -11,7 +12,7 @@ SESSION_SECRET=[key used to sign sessions with. For example, generated w/openssl
 NTFY_CHANNEL=[ntfy.sh topic for maintenance notifications]
 
 ```
-Note: last line must be empy!
+Note: last line must be empty!
 
 2. Create `email_params.json` file with
 ```json
@@ -36,11 +37,6 @@ You received this email because you signed up to the site (https://mywolverine.e
 
 4. Install dependencies w/`pip install -r requirements.txt` and run `sudo sh serve.sh`
 
-## TODO
-- clean up code
-- find obvious speedups
-
-On recs:
-- Deduplicate events (if very similar will have very similar predicted scores)
-- diversify feed (w/clusters?)
-- user specific beta and temperature params? principled way to set them?
+## TODOs
+- deduplicate events before displaying
+- diversify feed (sample using predicted rating?)
