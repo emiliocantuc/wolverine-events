@@ -113,10 +113,10 @@
 
     <script>
         function toggleVoteButtons(event_id, dir, hx_div) {
-            
-            let upButtons = document.getElementsByName(event_id + '_up');
-            let downButtons = document.getElementsByName(event_id + '_down');
-            let counters = document.getElementsByName(event_id + '_count');
+           
+            let upButtons =  document.querySelectorAll('[name="'+ event_id +'_up"]');
+            let downButtons = document.querySelectorAll('[name="'+ event_id +'_down"]');
+            let counters = document.querySelectorAll('[name="'+ event_id +'_count"]');
             let counterInt = parseInt(counters[0].textContent, 10);
             let upSelected = upButtons[0].classList.contains('text-warning');
             let downSelected = downButtons[0].classList.contains('text-warning');
