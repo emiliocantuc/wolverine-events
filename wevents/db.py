@@ -5,7 +5,7 @@ from datetime import datetime
 from wevents.utils import inv_distance_weights
 
 ######################################### EVENTS #########################################
-def get_events_where(db: sqlite3.Connection, where: str, user_id:int = None, *where_args):
+def get_events_where(db: sqlite3.Connection, where: str, user_id:int = None, trailing = '', *where_args):
     # Dynamically determine the UserVote part of the query
     user_vote_part = """,
         CASE 
@@ -38,6 +38,7 @@ def get_events_where(db: sqlite3.Connection, where: str, user_id:int = None, *wh
             {where}
         GROUP BY 
             e.event_id, e.title, e.event_description, e.event_start, e.event_end, e.gcal_link, e.permalink, e.building_name
+        {trailing}
     """
     params = (*where_args,) if user_id is None else (user_id, *where_args)
     cursor = db.execute(query, params)
@@ -48,56 +49,62 @@ def get_events_where(db: sqlite3.Connection, where: str, user_id:int = None, *wh
     return [dict(zip(keys, row)) for row in results]
 
 def get_events_by_ids(db: sqlite3.Connection, event_ids: list[int], user_id:int = None):
-    return get_events_where(db, f"Id IN ({','.join('?' * len(event_ids))}) AND e.event_end > CURRENT_DATE", user_id, *event_ids)
+    return get_events_where(db, f"Id IN ({','.join('?' * len(event_ids))}) AND e.event_end > CURRENT_DATE", user_id, '', *event_ids)
 
 def get_events_by_cluster(db: sqlite3.Connection, cluster_id: list[int], user_id:int = None):
-    return get_events_where(db, "Cluster = ? AND e.event_end > CURRENT_DATE", user_id, cluster_id)
+    return get_events_where(db, "Cluster = ? AND e.event_end > CURRENT_DATE", user_id, '', cluster_id)
 
 
 def get_top_events(db, limit, user_id = None):
     
-    # Dynamically determine the UserVote part of the query
-    user_vote_part = """,
-        CASE 
-            WHEN uv.vote_type = 'U' THEN 'U'
-            WHEN uv.vote_type = 'D' THEN 'D'
-            ELSE NULL
-        END AS UserVote
-    """ if user_id is not None else ""
+    # # Dynamically determine the UserVote part of the query
+    # user_vote_part = """,
+    #     CASE 
+    #         WHEN uv.vote_type = 'U' THEN 'U'
+    #         WHEN uv.vote_type = 'D' THEN 'D'
+    #         ELSE NULL
+    #     END AS UserVote
+    # """ if user_id is not None else ""
 
-    # Construct the SQL query, adding user vote logic only if user_id is provided
-    query = f"""
-        SELECT 
-            e.event_id AS Id,
-            e.title AS Title,
-            e.type AS EventType,
-            e.event_description AS Description,
-            e.event_start AS StartDate,
-            e.event_end AS EndDate,
-            e.cluster AS Cluster,
-            COALESCE(SUM(CASE WHEN v.vote_type = 'U' THEN 1 ELSE 0 END), 0) - 
-            COALESCE(SUM(CASE WHEN v.vote_type = 'D' THEN 1 ELSE 0 END), 0) AS VoteDiff,
-            e.gcal_link AS CalendarLink,
-            e.permalink AS PermaLink,
-            e.building_name AS BuildingName{user_vote_part.rstrip()}
-        FROM 
-            events e
-        LEFT JOIN 
-            votes v ON e.event_id = v.event_id
-        {"LEFT JOIN votes uv ON e.event_id = uv.event_id AND uv.user_id = ?" if user_id is not None else ""}
-        GROUP BY 
-            e.event_id, e.title, e.event_description, e.event_start, e.event_end, e.gcal_link, e.permalink, e.building_name
+    # # Construct the SQL query, adding user vote logic only if user_id is provided
+    # query = f"""
+    #     SELECT 
+    #         e.event_id AS Id,
+    #         e.title AS Title,
+    #         e.type AS EventType,
+    #         e.event_description AS Description,
+    #         e.event_start AS StartDate,
+    #         e.event_end AS EndDate,
+    #         e.cluster AS Cluster,
+    #         COALESCE(SUM(CASE WHEN v.vote_type = 'U' THEN 1 ELSE 0 END), 0) - 
+    #         COALESCE(SUM(CASE WHEN v.vote_type = 'D' THEN 1 ELSE 0 END), 0) AS VoteDiff,
+    #         e.gcal_link AS CalendarLink,
+    #         e.permalink AS PermaLink,
+    #         e.building_name AS BuildingName{user_vote_part.rstrip()}
+    #     FROM 
+    #         events e
+    #     LEFT JOIN 
+    #         votes v ON e.event_id = v.event_id
+    #     {"LEFT JOIN votes uv ON e.event_id = uv.event_id AND uv.user_id = ?" if user_id is not None else ""}
+        # GROUP BY 
+        #     e.event_id, e.title, e.event_description, e.event_start, e.event_end, e.gcal_link, e.permalink, e.building_name
+        # ORDER BY 
+        #     VoteDiff DESC, RANDOM()
+        # LIMIT ?
+    # """
+    # params = (limit,) if user_id is None else (user_id, limit)    
+    # cursor = db.execute(query, params)
+    # results = cursor.fetchall()
+
+    # keys = ['Id', 'Title', 'EventType', 'Description', 'StartDate', 'EndDate', 'Cluster', 'VoteDiff', 'CalendarLink', 'PermaLink', 'BuildingName']
+    # if user_id is not None: keys.append('UserVote')
+    # return [dict(zip(keys, row)) for row in results]
+    trailing = """
         ORDER BY 
             VoteDiff DESC, RANDOM()
-        LIMIT ?
-    """
-    params = (limit,) if user_id is None else (user_id, limit)    
-    cursor = db.execute(query, params)
-    results = cursor.fetchall()
-
-    keys = ['Id', 'Title', 'EventType', 'Description', 'StartDate', 'EndDate', 'Cluster', 'VoteDiff', 'CalendarLink', 'PermaLink', 'BuildingName']
-    if user_id is not None: keys.append('UserVote')
-    return [dict(zip(keys, row)) for row in results]
+        LIMIT ?"""
+    
+    return get_events_where(db, "e.event_end > CURRENT_DATE", user_id, trailing, limit)
 
 def get_event_blobs_and_gen_info(db: sqlite3.Connection):
     query = 'SELECT event_id, emb, dists_to_clusters, title, event_description FROM events WHERE event_end > CURRENT_DATE'
@@ -113,36 +120,33 @@ def get_ratings(db: sqlite3.Connection, user_id: int) -> dict:
     results = cursor.fetchall()
     return np.frombuffer(results[0][0])
 
-def update_user_ratings(db: sqlite3.Connection, user_id: int, event_id: int, update_factor: float, inv_temperature: float, beta: float):
+def update_user_ratings(db: sqlite3.Connection, user_id: int, event_id: int, actual: float, inv_temperature: float, lr: float):
     """
     Update the ratings array of a user based on the event's dists_to_clusters and the vote type.
     """
-    assert update_factor in (1., -1., 2.)
-    print('update factor', update_factor)
+    assert actual in (1., -1., 2.)
     
     # Get event and weights
-    query_event = "SELECT dists_to_clusters FROM events WHERE event_id = ?"
-    event_row = db.execute(query_event, (event_id,)).fetchone()
+    event_row = db.execute('SELECT dists_to_clusters FROM events WHERE event_id = ?', (event_id,)).fetchone()
     if event_row is None: raise ValueError(f'Event ID {event_id} not found.')
     dists_to_clusters = np.frombuffer(event_row[0])
     weights = inv_distance_weights(dists_to_clusters[None, :], inv_temperature = inv_temperature).squeeze()
 
     # Get the user's current ratings (TODO could we save in session?)
-    query_user_ratings = "SELECT cluster_ratings FROM users WHERE user_id = ?"
-    user_row = db.execute(query_user_ratings, (user_id,)).fetchone()
+    user_row = db.execute('SELECT cluster_ratings FROM users WHERE user_id = ?', (user_id,)).fetchone()
     if user_row is None: raise ValueError(f"User ID {user_id} not found.")
     user_ratings = np.frombuffer(user_row[0])
-    print('current user_ratings', user_ratings.shape, user_ratings.mean())
 
-    # Compute new rating using exp. moving average
-    new_rating = beta * user_ratings + (1-beta) * (update_factor * weights)
+    # Predicted rating
+    pred = weights @ user_ratings
+
+    # Compute new rating w/a grad. descent step
+    new_rating = user_ratings - lr * weights * (pred - actual)
     
-    print('change', (new_rating - user_ratings).mean(), np.abs(new_rating - user_ratings).max())
-    query_update_ratings = "UPDATE users SET cluster_ratings = ? WHERE user_id = ?"
-    db.execute(query_update_ratings, (new_rating.tobytes(), user_id))
+    db.execute('UPDATE users SET cluster_ratings = ? WHERE user_id = ?', (new_rating.tobytes(), user_id))
     db.commit()
 
-    print(f"User {user_id}'s ratings updated successfully.")
+    print(f'User {user_id}s ratings updated successfully.')
 
 def get_preferences(db: sqlite3.Connection, user_id: int) -> dict:
 
@@ -177,14 +181,12 @@ def signin_user(db: sqlite3.Connection, email: str, n_clusters: int = 1000, unif
     """
     
     # Check if the user already exists
-    query_check = "SELECT user_id FROM users WHERE email = ?"
-    row = db.execute(query_check, (email,)).fetchone()
+    row = db.execute('SELECT user_id FROM users WHERE email = ?', (email,)).fetchone()
     if row: return row[0], False
     
     # If user doesn't exist, insert the new user
-    ratings = np.random.uniform(-unif_range, unif_range, size = n_clusters) # TODO magic constant
-    query_insert_user = "INSERT INTO users (email, cluster_ratings) VALUES (?, ?)"
-    cursor = db.execute(query_insert_user, (email, ratings.tobytes()))
+    ratings = np.random.uniform(-unif_range, unif_range, size = n_clusters)
+    cursor = db.execute('INSERT INTO users (email, cluster_ratings) VALUES (?, ?)', (email, ratings.tobytes()))
     user_id = cursor.lastrowid
     db.commit()
     
@@ -193,21 +195,14 @@ def signin_user(db: sqlite3.Connection, email: str, n_clusters: int = 1000, unif
 
 
 def delete_user(db: sqlite3.Connection, user_id: int) -> None:
-    # Begin transaction
+    # Delete from user and preferences tables (votes are autopruned at end of week)
     try:
         cursor = db.cursor()
         cursor.execute("BEGIN")
-        
-        # Delete preferences
         cursor.execute("DELETE FROM preferences WHERE user_id = ?", (user_id,))
-        
-        # Delete user
         cursor.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
-        
-        # Commit transaction
         db.commit()
     except sqlite3.Error as e:
-        # Rollback transaction in case of error
         db.rollback()
         raise Exception(f"could not delete user: {e}")
     
@@ -229,8 +224,7 @@ def vote(db: sqlite3.Connection, user_id: int, event_id: int, vote_type: str) ->
 
 
 def get_stats(db: sqlite3.Connection) -> dict:
-    query = 'SELECT nweek, nusers, nevents FROM statistics ORDER BY nweek LIMIT 5;'
-    results = db.execute(query).fetchall()
+    results = db.execute('SELECT nweek, nusers, nevents FROM statistics ORDER BY nweek LIMIT 5;').fetchall()
     if results is None: raise Exception(f"No statistics found.")
     return [dict(zip(['nweek', 'nusers', 'nevents'], row)) for row in results]
 

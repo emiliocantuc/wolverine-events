@@ -16,7 +16,7 @@ from wevents.utils import format_event, inv_distance_weights
 N_FEATURED = 25
 N_PERSONAL = 35
 INV_TEMP = 2.0  # inv. temperature of softmax weight calc. (0, inf). higher -> peakier weights
-BETA = 0.8      # lerp weight on past user_ratings [0, 1]. higher -> weighs past ratings more
+LR = 0.1        # learning rate used to update user's centroid ratings
 
 # Sign in stuff
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
@@ -115,7 +115,7 @@ def vote():
         db_utils.vote(db = db, user_id = g.user, event_id = request.args['eventId'], vote_type = request.args['type'])
         db_utils.update_user_ratings(
             db = db, user_id = g.user, event_id = request.args['eventId'],
-            update_factor = factor, inv_temperature = INV_TEMP, beta = BETA
+            actual = factor, inv_temperature = INV_TEMP, lr = LR
         )
         return 'ok'
     except Exception as e:
@@ -158,7 +158,6 @@ def cluster(id = None):
         try:
             events = db_utils.get_events_by_cluster(db = db, cluster_id = id, user_id = g.user)
             events = [format_event(e) for e in events]
-            print(len(events))
             return render_template('cluster.html', cluster = id, events = events)
         except Exception as e:
             print(f'Error getting preferences: {e}')
