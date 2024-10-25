@@ -16,7 +16,7 @@ from wevents.utils import format_event, inv_distance_weights
 N_FEATURED = 25
 N_PERSONAL = 35
 INV_TEMP = 2.0  # inv. temperature of softmax weight calc. (0, inf). higher -> peakier weights
-LR = 0.1        # learning rate used to update user's centroid ratings
+LR = 1.0        # learning rate used to update user's centroid ratings
 
 # Sign in stuff
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')

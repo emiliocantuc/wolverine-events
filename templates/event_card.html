@@ -6,7 +6,7 @@
             <a href="{{ event.PermaLink }}" target="_blank">
                 <h6 class="card-title mb-0">{{ event.Title }}</h6>
             </a>
-            <small class="card-subtitle text-muted mt-0">{{ event.Subtitle }}</small>
+            <p class="card-subtitle text-muted mt-0 mb-1" style="font-size: 80%;">{{ event.Subtitle }}</p>
             <a href="{{ event.PermaLink }}" target="_blank">
                 <p class="card-text" style="font-size: 80%;">{{ event.Description }}</p>
             </a>
@@ -23,7 +23,7 @@
                 </a>
 
                 <!-- <small><a style="text-decoration: underline" onclick="alert('{{ event.info }}')">info</a></small> -->
-                <small class="text-muted">cluster: <a class="text-muted" style="text-decoration: underline;" href="/cluster/{{event.Cluster}}">{{event.Cluster}}</a> {{ event.info }}</small>
+                <!-- <small class="text-muted">cluster: <a class="text-muted" style="text-decoration: underline;" href="/cluster/{{event.Cluster}}">{{event.Cluster}}</a> {{ event.info }}</small> -->
 
                 {% if g.user %}
                 <!-- Upvote button -->
