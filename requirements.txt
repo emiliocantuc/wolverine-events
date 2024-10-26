@@ -1,4 +1,6 @@
 Flask==3.0.3
-numpy==1.23.5
-protobuf==5.28.2
+numpy==2.1.2
+protobuf==5.28.3
 Requests==2.32.3
+scikit_learn==1.5.2
+google-auth==2.29.0
