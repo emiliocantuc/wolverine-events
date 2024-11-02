@@ -55,6 +55,7 @@ def login():
         idinfo = id_token.verify_oauth2_token(request.form['credential'], requests.Request(), os.getenv('GOOGLE_CLIENT_ID'))
         user_id, is_new = db_utils.signin_user(get_db(), idinfo['email'])
         session['user_id'] = user_id
+        session.permanent = True
         print('singed in ', idinfo['email'], user_id)
     except ValueError as e:
         print('error validating', e)
