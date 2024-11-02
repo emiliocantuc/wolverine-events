@@ -79,15 +79,16 @@ def main():
 
     # Compute recommended
     recommended_events = None
+    recs_info = {'N_PERSONAL': N_PERSONAL, 'INV_TEMP': INV_TEMP}
     try:
         if g.user:
 
             preferences = db_utils.get_preferences(db = db, user_id = g.user)
 
             events = db_utils.get_event_blobs_and_gen_info(db = db)
-            n_filtered = len(events)
+            recs_info['n_available'] = len(events)
             events = filter_events_by_keywords(events, preferences['keywordsToAvoid'])
-            n_filtered -= len(events)
+            recs_info['n_filtered'] = recs_info['n_available'] - len(events)
 
             ids = np.array([e['id'] for e in events])
             dists_to_centroids = np.array([e['dist_to_clusters'] for e in events])
@@ -103,13 +104,13 @@ def main():
             recommended_events = [format_event(e) for e in recommended_events]
 
             for e, og_ix in zip(recommended_events, rec_ixs):
-                e['info'] = f'rank: {np.where(rec_ixs == og_ix)[0][0]} pred: {round(preds[og_ix], 6)}'
+                e['info'] = f'Ranked (starting at 0): {np.where(rec_ixs == og_ix)[0][0]}\\nPredicted rating [-1, 2]: {round(preds[og_ix], 6)}'
 
     except Exception as e: print('error getting recs:', e)
 
     return render_template(
         'index.html', google_client_id = GOOGLE_CLIENT_ID,
-        recommended_events = recommended_events, featured_events = featured_events
+        recommended_events = recommended_events, featured_events = featured_events, recs_info = recs_info
     )
 
 @app.route('/vote', methods = ['PUT', 'POST'])

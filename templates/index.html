@@ -77,7 +77,11 @@
     {% if g.user %}
     {% if recommended_events %}
     <h3 id="recs" class="text-center"><span>Your recommendations</span></h3>
-    <div class="text-center">or <a class="text-center" href="#featured">Jump to Featured ↑</a></div><br>
+    <div class="text-center">or <a class="text-center" href="#featured">Jump to Featured ↑</a><br></div><br>
+    <div class="text-center text-muted">
+        Showing top {{ recommended_events | length }} of {{ recs_info.n_available}} available events<br>
+        (filtered out {{ recs_info.n_filtered }} by keywords set in preferences)
+    </div><br>
 
     <div class="container p-0  mb-5">
         <div class="card-deck">

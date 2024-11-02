@@ -21,9 +21,10 @@
                         </svg>
                     </div>
                 </a>
-
-                <!-- <small><a style="text-decoration: underline" onclick="alert('{{ event.info }}')">info</a></small> -->
+                {% if event.info %}
+                <small><a class="text-muted" style="text-decoration: underline" onclick="alert('{{ event.info }}')">info</a></small>
                 <!-- <small class="text-muted">cluster: <a class="text-muted" style="text-decoration: underline;" href="/cluster/{{event.Cluster}}">{{event.Cluster}}</a> {{ event.info }}</small> -->
+                {% endif %}
 
                 {% if g.user %}
                 <!-- Upvote button -->
