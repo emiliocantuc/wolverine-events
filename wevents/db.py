@@ -56,49 +56,6 @@ def get_events_by_cluster(db: sqlite3.Connection, cluster_id: list[int], user_id
 
 
 def get_top_events(db, limit, user_id = None):
-    
-    # # Dynamically determine the UserVote part of the query
-    # user_vote_part = """,
-    #     CASE 
-    #         WHEN uv.vote_type = 'U' THEN 'U'
-    #         WHEN uv.vote_type = 'D' THEN 'D'
-    #         ELSE NULL
-    #     END AS UserVote
-    # """ if user_id is not None else ""
-
-    # # Construct the SQL query, adding user vote logic only if user_id is provided
-    # query = f"""
-    #     SELECT 
-    #         e.event_id AS Id,
-    #         e.title AS Title,
-    #         e.type AS EventType,
-    #         e.event_description AS Description,
-    #         e.event_start AS StartDate,
-    #         e.event_end AS EndDate,
-    #         e.cluster AS Cluster,
-    #         COALESCE(SUM(CASE WHEN v.vote_type = 'U' THEN 1 ELSE 0 END), 0) - 
-    #         COALESCE(SUM(CASE WHEN v.vote_type = 'D' THEN 1 ELSE 0 END), 0) AS VoteDiff,
-    #         e.gcal_link AS CalendarLink,
-    #         e.permalink AS PermaLink,
-    #         e.building_name AS BuildingName{user_vote_part.rstrip()}
-    #     FROM 
-    #         events e
-    #     LEFT JOIN 
-    #         votes v ON e.event_id = v.event_id
-    #     {"LEFT JOIN votes uv ON e.event_id = uv.event_id AND uv.user_id = ?" if user_id is not None else ""}
-        # GROUP BY 
-        #     e.event_id, e.title, e.event_description, e.event_start, e.event_end, e.gcal_link, e.permalink, e.building_name
-        # ORDER BY 
-        #     VoteDiff DESC, RANDOM()
-        # LIMIT ?
-    # """
-    # params = (limit,) if user_id is None else (user_id, limit)    
-    # cursor = db.execute(query, params)
-    # results = cursor.fetchall()
-
-    # keys = ['Id', 'Title', 'EventType', 'Description', 'StartDate', 'EndDate', 'Cluster', 'VoteDiff', 'CalendarLink', 'PermaLink', 'BuildingName']
-    # if user_id is not None: keys.append('UserVote')
-    # return [dict(zip(keys, row)) for row in results]
     trailing = """
         ORDER BY 
             VoteDiff DESC, RANDOM()

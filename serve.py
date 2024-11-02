@@ -10,10 +10,10 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 
 import wevents.db as db_utils
-from wevents.utils import format_event, inv_distance_weights
+from wevents.utils import format_event, inv_distance_weights, filter_events_by_keywords
 
 # Rec. params
-N_FEATURED = 25
+N_FEATURED = 10
 N_PERSONAL = 35
 INV_TEMP = 2.0  # inv. temperature of softmax weight calc. (0, inf). higher -> peakier weights
 LR = 1.0        # learning rate used to update user's centroid ratings
@@ -82,7 +82,13 @@ def main():
     try:
         if g.user:
 
+            preferences = db_utils.get_preferences(db = db, user_id = g.user)
+
             events = db_utils.get_event_blobs_and_gen_info(db = db)
+            n_filtered = len(events)
+            events = filter_events_by_keywords(events, preferences['keywordsToAvoid'])
+            n_filtered -= len(events)
+
             ids = np.array([e['id'] for e in events])
             dists_to_centroids = np.array([e['dist_to_clusters'] for e in events])
             weights = inv_distance_weights(dists_to_centroids, inv_temperature = INV_TEMP) # TODO recomputing weights here?

@@ -1,5 +1,6 @@
 from datetime import datetime
 import numpy as np
+import re
 
 def format_event(event):
 
@@ -37,6 +38,15 @@ def format_event(event):
     event['Subtitle'] = " | ".join([i for i in [event_type, start_time, event['BuildingName']] if i])
     return event
 
+def filter_events_by_keywords(events, keywords):
+    # Returns events without keywords in title or description
+    has_kw = lambda kw, s: re.search(r'\b{}\b'.format(kw.strip()), s.strip(), re.IGNORECASE)
+    does_not_have_kws = lambda e: not any(
+        has_kw(kw, e['title']) or has_kw(kw, e['event_description'])
+        for kw in keywords.split(',')
+    )
+    return list(filter(does_not_have_kws, events))
+
 
 def softmax(x):
     # Applies softmax accross the rows of x
@@ -44,6 +54,7 @@ def softmax(x):
     e = (np.exp(x) - np.max(x, axis = 1, keepdims = True))
     e /= e.sum(axis = 1, keepdims = True)
     return e
+
 def inv_distance_weights(distances, inv_temperature = 1.0, eps = 1e-5):
     weights = (1 / (distances + eps))
     weights = softmax(inv_temperature * weights)
