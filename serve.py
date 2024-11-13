@@ -84,10 +84,10 @@ def main():
         if g.user:
 
             preferences = db_utils.get_preferences(db = db, user_id = g.user)
-
             events = db_utils.get_event_blobs_and_gen_info(db = db)
+
             recs_info['n_available'] = len(events)
-            events = filter_events_by_keywords(events, preferences['keywordsToAvoid'])
+            if preferences.get('keywordsToAvoid'): events = filter_events_by_keywords(events, preferences['keywordsToAvoid'])
             recs_info['n_filtered'] = recs_info['n_available'] - len(events)
 
             ids = np.array([e['id'] for e in events])
