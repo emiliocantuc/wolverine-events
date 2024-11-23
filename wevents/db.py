@@ -23,7 +23,6 @@ def get_events_where(db: sqlite3.Connection, where: str, user_id:int = None, tra
             e.event_description AS Description,
             e.event_start AS StartDate,
             e.event_end AS EndDate,
-            e.cluster AS Cluster,
             COALESCE(SUM(CASE WHEN v.vote_type = 'U' THEN 1 ELSE 0 END), 0) - 
             COALESCE(SUM(CASE WHEN v.vote_type = 'D' THEN 1 ELSE 0 END), 0) AS VoteDiff,
             e.gcal_link AS CalendarLink,
@@ -44,7 +43,7 @@ def get_events_where(db: sqlite3.Connection, where: str, user_id:int = None, tra
     cursor = db.execute(query, params)
     results = cursor.fetchall()
 
-    keys = ['Id', 'Title', 'EventType', 'Description', 'StartDate', 'EndDate', 'Cluster', 'VoteDiff', 'CalendarLink', 'PermaLink', 'BuildingName']
+    keys = ['Id', 'Title', 'EventType', 'Description', 'StartDate', 'EndDate', 'VoteDiff', 'CalendarLink', 'PermaLink', 'BuildingName']
     if user_id is not None: keys.append('UserVote')
     return [dict(zip(keys, row)) for row in results]
 
@@ -60,11 +59,11 @@ def get_top_events(db, limit, user_id = None):
     return get_events_where(db, "e.event_end > CURRENT_DATE", user_id, trailing, limit)
 
 def get_event_blobs_and_gen_info(db: sqlite3.Connection):
-    query = 'SELECT event_id, emb, dists_to_clusters, title, event_description FROM events WHERE event_end > CURRENT_DATE'
+    query = 'SELECT event_id, emb, title, event_description FROM events WHERE event_end > CURRENT_DATE'
     cursor = db.cursor()
     cursor.execute(query)
     results = cursor.fetchall()
-    return [{'id': row[0], 'emb': np.frombuffer(row[1]), 'dist_to_clusters': np.frombuffer(row[2]), 'title': row[3], 'event_description': row[4]} for row in results]
+    return [{'id': row[0], 'emb': np.frombuffer(row[1]), 'title': row[2], 'event_description': row[3]} for row in results]
 
 ########################################## USER ##########################################
 def get_user_emb(db: sqlite3.Connection, user_id: int) -> dict:

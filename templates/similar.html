@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cluster {{ cluster }}</title>
+    <title>Similar events</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
@@ -55,7 +55,7 @@
     </div>
     {% else %}
     <div class="container text-center">
-        <p>No events in this cluster found. Could be because we found no matches this week or there is an error. </p>
+        <p>No similar events found. An error has probably occurred. </p>
     </div>
     {% endif %}
 
