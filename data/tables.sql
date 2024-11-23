@@ -4,19 +4,15 @@
 CREATE TABLE IF NOT EXISTS users (
     user_id INTEGER PRIMARY KEY AUTOINCREMENT,
     email VARCHAR(100) NOT NULL UNIQUE,
-    cluster_ratings BLOB,                  -- To store the ratings array as binary data
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS preferences (
-    user_id INT NOT NULL,
     interests TEXT DEFAULT '',
     keywordsToAvoid TEXT DEFAULT '',
-    sendEmail INTEGER DEFAULT 1 CHECK (sendEmail IN (0, 1)),
-    PRIMARY KEY (user_id),
-    FOREIGN KEY (user_id) REFERENCES users(user_id)
+    update_intersts INTEGER DEFAULT 0 CHECK (update_intersts IN (0, 1)),
+    interests_emb BLOB,                     -- Mean of interest embeddings 
+    interactions_emb BLOB,                  -- Weighted mean (based of positve / negative interactions) of event embeddings
+    alpha FLOAT DEFAULT 0.8,
+    beta FLOAT DEFAULT 0.8,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
-
 
 CREATE TABLE IF NOT EXISTS events (
     event_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,14 +50,6 @@ CREATE TABLE IF NOT EXISTS statistics (
     nusers INT,
     nevents INT
 );
-
--- Auto create preferences for new user
-CREATE TRIGGER IF NOT EXISTS after_user_insert
-AFTER INSERT ON users
-FOR EACH ROW
-BEGIN
-    INSERT INTO preferences (user_id) VALUES (NEW.user_id);
-END;
 
 -- Indexing
 CREATE INDEX IF NOT EXISTS idx_user_id ON votes (user_id);

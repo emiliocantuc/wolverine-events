@@ -46,17 +46,3 @@ def filter_events_by_keywords(events, keywords):
         for kw in keywords.split(',')
     )
     return list(filter(does_not_have_kws, events))
-
-
-def softmax(x):
-    # Applies softmax accross the rows of x
-    assert x.ndim == 2
-    e = (np.exp(x) - np.max(x, axis = 1, keepdims = True))
-    e /= e.sum(axis = 1, keepdims = True)
-    return e
-
-def inv_distance_weights(distances, inv_temperature = 1.0, eps = 1e-5):
-    weights = (1 / (distances + eps))
-    weights = softmax(inv_temperature * weights)
-    # weights /= weights.sum(axis=1)[:, np.newaxis]
-    return weights

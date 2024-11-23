@@ -1,7 +1,7 @@
 {% macro eventCard(event) %}
 <div class="col-lg-6 col-md-6 col-sm-14 mb-2">
     <div class="card">
-        <div class="card-body">
+        <div class="card-body" {% if event.highlight %} style="background-color: rgba(255, 205, 5, 0.2);"{% endif %}>
 
             <a href="{{ event.PermaLink }}" target="_blank">
                 <h6 class="card-title mb-0">{{ event.Title }}</h6>
@@ -21,10 +21,13 @@
                         </svg>
                     </div>
                 </a>
-                {% if event.info %}
-                <small><a class="text-muted" style="text-decoration: underline" onclick="alert('{{ event.info }}')">info</a></small>
-                <!-- <small class="text-muted">cluster: <a class="text-muted" style="text-decoration: underline;" href="/cluster/{{event.Cluster}}">{{event.Cluster}}</a> {{ event.info }}</small> -->
-                {% endif %}
+                <small>
+                    {% if event.info %}
+                    <a class="text-muted" style="text-decoration: underline; margin-right: 8px;" onclick="alert('{{ event.info }}')">[info]</a>
+                    {% endif %}
+                    <a class="text-muted" style="text-decoration: underline;" href="/similar/{{event.Id}}">[similar]</a> 
+
+                </small>
 
                 {% if g.user %}
                 <!-- Upvote button -->

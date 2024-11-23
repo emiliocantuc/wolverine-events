@@ -10,13 +10,12 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 
 import wevents.db as db_utils
-from wevents.utils import format_event, inv_distance_weights, filter_events_by_keywords
+from wevents.utils import format_event, filter_events_by_keywords
 
 # Rec. params
 N_FEATURED = 10
 N_PERSONAL = 35
-INV_TEMP = 2.0  # inv. temperature of softmax weight calc. (0, inf). higher -> peakier weights
-LR = 1.0        # learning rate used to update user's centroid ratings
+EMB_DIM = 1536
 
 # Sign in stuff
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
@@ -53,7 +52,7 @@ def load_logged_in_user(): g.user = session.get('user_id', None)
 def login():
     try:
         idinfo = id_token.verify_oauth2_token(request.form['credential'], requests.Request(), os.getenv('GOOGLE_CLIENT_ID'))
-        user_id, is_new = db_utils.signin_user(get_db(), idinfo['email'])
+        user_id, is_new = db_utils.signin_user(get_db(), idinfo['email'], emb_dim = EMB_DIM)
         session['user_id'] = user_id
         session.permanent = True
         print('singed in ', idinfo['email'], user_id)
@@ -84,27 +83,34 @@ def main():
         if g.user:
 
             preferences = db_utils.get_preferences(db = db, user_id = g.user)
-            events = db_utils.get_event_blobs_and_gen_info(db = db)
+            events = db_utils.get_event_blobs_and_gen_info(db = db) # TODO should we just keep in memory?
 
+            # Filter out by keywords
             recs_info['n_available'] = len(events)
-            if preferences.get('keywordsToAvoid'): events = filter_events_by_keywords(events, preferences['keywordsToAvoid'])
+            if preferences.get('keywordsToAvoid'):
+                events = filter_events_by_keywords(events, preferences['keywordsToAvoid'])
             recs_info['n_filtered'] = recs_info['n_available'] - len(events)
 
+            # Event embeddings
+            E = np.array([e['emb'] for e in events])
             ids = np.array([e['id'] for e in events])
-            dists_to_centroids = np.array([e['dist_to_clusters'] for e in events])
-            weights = inv_distance_weights(dists_to_centroids, inv_temperature = INV_TEMP) # TODO recomputing weights here?
 
-            user_ratings = db_utils.get_ratings(db = db, user_id = g.user)
-            preds = weights @ user_ratings
+            user_emb = db_utils.get_user_emb(db = db, user_id = g.user)
+            preds = E @ user_emb
+
+            preds.sort()
+            print(preds.cumsum())
 
             # Recommend events with highest predicted rating
             rec_ixs = (-preds).argsort()[:N_PERSONAL] # ix in current_events
+            rec_ids = ids[rec_ixs].tolist()
 
-            recommended_events = db_utils.get_events_by_ids(db = db, event_ids = ids[rec_ixs].tolist(), user_id = g.user)
+            recommended_events = db_utils.get_events_by_ids(db = db, event_ids = rec_ids, user_id = g.user)
+            recommended_events = sorted(recommended_events, key = lambda e: rec_ids.index(e['Id']))
             recommended_events = [format_event(e) for e in recommended_events]
 
             for e, og_ix in zip(recommended_events, rec_ixs):
-                e['info'] = f'Ranked (starting at 0): {np.where(rec_ixs == og_ix)[0][0]}\\nPredicted rating [-1, 2]: {round(preds[og_ix], 6)}'
+                e['info'] = f'Ranked (starting at 0): {np.where(rec_ixs == og_ix)[0][0]}\\nCos similarity: {preds[og_ix]:.6f}'
 
     except Exception as e: print('error getting recs:', e)
 
@@ -121,10 +127,7 @@ def vote():
         assert factor in (-1., 1., 2.)
         db = get_db()
         db_utils.vote(db = db, user_id = g.user, event_id = request.args['eventId'], vote_type = request.args['type'])
-        db_utils.update_user_ratings(
-            db = db, user_id = g.user, event_id = request.args['eventId'],
-            actual = factor, inv_temperature = INV_TEMP, lr = LR
-        )
+        db_utils.update_user_interactions_emb(db = db, user_id = g.user, event_id = request.args['eventId'], rating = factor)
         return 'ok'
     except Exception as e:
         print('Error voting: ', e)
@@ -156,23 +159,44 @@ def prefs():
     db_utils.update_preference(db = db, user_id = g.user, pref_key = key, pref_value = value)
     return 'Saved'
 
-@app.route('/cluster/<id>', methods = ['GET', 'PUT'])
-def cluster(id = None):
+@app.route('/similar/<id>', methods = ['GET'])
+def similar(id = None):
 
     if id is None: redirect(url_for('main'))
 
     db = get_db()
     if request.method == 'GET':
         try:
-            events = db_utils.get_events_by_cluster(db = db, cluster_id = id, user_id = g.user)
+
+            events = db_utils.get_event_blobs_and_gen_info(db = db) # TODO should we just keep in memory?
+
+            # Event embeddings
+            E = np.array([e['emb'] for e in events])
+            ids = np.array([e['id'] for e in events])
+
+            event_ix = np.where(ids == int(id))[0][0] # in E
+            event_emb = E[event_ix]
+
+            preds = E @ event_emb
+
+            # TODO check same error above
+            # "Recommend" events with highest predicted rating
+            rec_ixs = (-preds).argsort()[:N_PERSONAL] # ix in E
+            rec_ids = ids[rec_ixs].tolist()
+            
+            events = db_utils.get_events_by_ids(db = db, event_ids = rec_ids, user_id = g.user)
+            events = sorted(events, key = lambda e: rec_ids.index(e['Id']))
             events = [format_event(e) for e in events]
-            return render_template('cluster.html', cluster = id, events = events)
+
+            for e, og_ix in zip(events, rec_ixs):
+                if e['Id'] == int(id): e['highlight'] = True
+                e['info'] = f'Ranked (starting at 0): {np.where(rec_ixs == og_ix)[0][0]}\\nCos similarity: {preds[og_ix]:.6f}'
+
+            return render_template('similar.html', events = events)
+
         except Exception as e:
-            print(f'Error getting preferences: {e}')
-            return "An error occurred. Please try again later."
-    
-    if request.method == 'PUT':
-        pass
+            print(f'Error getting simiar: {e}')
+            return 'An error occurred. Please try again later.'
     
     return 'ok'
 

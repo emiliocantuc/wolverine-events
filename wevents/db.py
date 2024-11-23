@@ -2,8 +2,6 @@ import sqlite3
 import numpy as np
 from datetime import datetime
 
-from wevents.utils import inv_distance_weights
-
 ######################################### EVENTS #########################################
 def get_events_where(db: sqlite3.Connection, where: str, user_id:int = None, trailing = '', *where_args):
     # Dynamically determine the UserVote part of the query
@@ -51,10 +49,6 @@ def get_events_where(db: sqlite3.Connection, where: str, user_id:int = None, tra
 def get_events_by_ids(db: sqlite3.Connection, event_ids: list[int], user_id:int = None):
     return get_events_where(db, f"Id IN ({','.join('?' * len(event_ids))}) AND e.event_end > CURRENT_DATE", user_id, '', *event_ids)
 
-def get_events_by_cluster(db: sqlite3.Connection, cluster_id: list[int], user_id:int = None):
-    return get_events_where(db, "Cluster = ? AND e.event_end > CURRENT_DATE", user_id, '', cluster_id)
-
-
 def get_top_events(db, limit, user_id = None):
     trailing = """
         ORDER BY 
@@ -71,67 +65,53 @@ def get_event_blobs_and_gen_info(db: sqlite3.Connection):
     return [{'id': row[0], 'emb': np.frombuffer(row[1]), 'dist_to_clusters': np.frombuffer(row[2]), 'title': row[3], 'event_description': row[4]} for row in results]
 
 ########################################## USER ##########################################
-def get_ratings(db: sqlite3.Connection, user_id: int) -> dict:
-    query = 'SELECT cluster_ratings FROM users WHERE user_id = ?'
+def get_user_emb(db: sqlite3.Connection, user_id: int) -> dict:
+    query = 'SELECT interests_emb, interactions_emb, alpha FROM users WHERE user_id = ?'
     cursor = db.execute(query, (user_id,))
-    results = cursor.fetchall()
-    return np.frombuffer(results[0][0])
+    row = cursor.fetchone()
+    interests_emb, interactions_emb, alpha = np.frombuffer(row[0]), np.frombuffer(row[1]), row[2]
+    return (alpha) * interests_emb + (1-alpha) * interactions_emb
 
-def update_user_ratings(db: sqlite3.Connection, user_id: int, event_id: int, actual: float, inv_temperature: float, lr: float):
+def update_user_interactions_emb(db: sqlite3.Connection, user_id: int, event_id: int, rating: float):
     """
-    Update the ratings array of a user based on the event's dists_to_clusters and the vote type.
+    Update a user's interactions embedding based on an event's ratings.
     """
-    assert actual in (1., -1., 2.)
+    assert rating in (1., -1., 2.)
     
     # Get event and weights
-    event_row = db.execute('SELECT dists_to_clusters FROM events WHERE event_id = ?', (event_id,)).fetchone()
+    event_row = db.execute('SELECT emb FROM events WHERE event_id = ?', (event_id,)).fetchone()
     if event_row is None: raise ValueError(f'Event ID {event_id} not found.')
-    dists_to_clusters = np.frombuffer(event_row[0])
-    weights = inv_distance_weights(dists_to_clusters[None, :], inv_temperature = inv_temperature).squeeze()
+    event_emb = np.frombuffer(event_row[0])
 
-    # Get the user's current ratings (TODO could we save in session?)
-    user_row = db.execute('SELECT cluster_ratings FROM users WHERE user_id = ?', (user_id,)).fetchone()
-    if user_row is None: raise ValueError(f"User ID {user_id} not found.")
-    user_ratings = np.frombuffer(user_row[0])
+    # Get the user's interactions embedding and beta
+    row = db.execute('SELECT interactions_emb, beta FROM users WHERE user_id = ?', (user_id,)).fetchone()
+    if row is None: raise ValueError(f"User ID {user_id} not found.")
+    interactions_emb, beta = np.frombuffer(row[0]), row[1]
 
-    # Predicted rating
-    pred = weights @ user_ratings
-
-    # Compute new rating w/a grad. descent step
-    new_rating = user_ratings - lr * weights * (pred - actual)
+    # Update emb
+    interactions_emb = beta * interactions_emb + (1-beta) * (rating * event_emb)
     
-    db.execute('UPDATE users SET cluster_ratings = ? WHERE user_id = ?', (new_rating.tobytes(), user_id))
+    db.execute('UPDATE users SET interactions_emb = ? WHERE user_id = ?', (interactions_emb.tobytes(), user_id))
     db.commit()
 
     print(f'User {user_id}s ratings updated successfully.')
 
 def get_preferences(db: sqlite3.Connection, user_id: int) -> dict:
 
-    query = 'SELECT interests, keywordsToAvoid FROM preferences WHERE user_id = ?'
+    query = 'SELECT interests, keywordsToAvoid FROM users WHERE user_id = ?'
     row = db.execute(query, (user_id,)).fetchone()
-    if row is None: raise Exception(f"No preferences found for user_id {user_id}")
-
+    if row is None: raise Exception(f'No preferences found for user_id {user_id}')
     interests, keywords_to_avoid = row
-    # TODO check if we could only return row?
-    return {
-        'interests': interests,
-        'keywordsToAvoid': keywords_to_avoid
-    }
+    return {'interests': interests, 'keywordsToAvoid': keywords_to_avoid}
 
 def update_preference(db: sqlite3.Connection, user_id: int, pref_key: str, pref_value: str) -> None:
-    if pref_key not in ['interests', 'keywordsToAvoid']: raise Exception(f"invalid preference key: {pref_key}")
-    query = f"""
-        INSERT INTO preferences (user_id, {pref_key})
-        VALUES (?, ?)
-        ON CONFLICT(user_id)
-        DO UPDATE SET {pref_key} = excluded.{pref_key}
-    """
+    if pref_key not in ['interests', 'keywordsToAvoid']: raise Exception(f'invalid preference key: {pref_key}')
     try:
-        db.execute(query, (user_id, pref_value))
+        db.execute(f'UPDATE users SET {pref_key} = ? WHERE user_id = ?', (pref_value, user_id))
         db.commit()
-    except sqlite3.Error as e: raise Exception(f"could not update preference {pref_key}: {e}")
+    except sqlite3.Error as e: raise Exception(f'could not update preference {pref_key}: {e}')
 
-def signin_user(db: sqlite3.Connection, email: str, n_clusters: int = 1000, unif_range: float = 1e-5) -> tuple[int, bool]:
+def signin_user(db: sqlite3.Connection, email: str, emb_dim: int, unif_range: float = 1e-5) -> tuple[int, bool]:
     """
     Returns user_id given email for a user. If the user is new, adds the user and their ratings.
     Returns the user_id and a boolean indicating if the user is new.
@@ -142,22 +122,27 @@ def signin_user(db: sqlite3.Connection, email: str, n_clusters: int = 1000, unif
     if row: return row[0], False
     
     # If user doesn't exist, insert the new user
-    ratings = np.random.uniform(-unif_range, unif_range, size = n_clusters)
-    cursor = db.execute('INSERT INTO users (email, cluster_ratings) VALUES (?, ?)', (email, ratings.tobytes()))
+    interests_emb    = np.random.uniform(-unif_range, unif_range, size = emb_dim)
+    interactions_emb = np.random.uniform(-unif_range, unif_range, size = emb_dim)
+
+    cursor = db.execute(
+        'INSERT INTO users (email, interests_emb, interactions_emb) VALUES (?, ?, ?)',
+        (email, interests_emb.tobytes(), interactions_emb.tobytes())
+    )
     user_id = cursor.lastrowid
     db.commit()
     
-    print(f'New user {user_id} w/ratings mean/std: {ratings.mean():.4f}/{ratings.std():.4f}')
+    print(f'New user {user_id} {email}')
     return user_id, True
 
 
 def delete_user(db: sqlite3.Connection, user_id: int) -> None:
-    # Delete from user and preferences tables (votes are autopruned at end of week)
+    # Delete from user and votes tables
     try:
         cursor = db.cursor()
         cursor.execute("BEGIN")
-        cursor.execute("DELETE FROM preferences WHERE user_id = ?", (user_id,))
         cursor.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+        cursor.execute("DELETE FROM votes WHERE user_id = ?", (user_id,))
         db.commit()
     except sqlite3.Error as e:
         db.rollback()
