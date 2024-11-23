@@ -1,6 +1,8 @@
-import sqlite3
+import sqlite3, os
 import numpy as np
 from datetime import datetime
+
+from scripts.utils import get_embedding
 
 ######################################### EVENTS #########################################
 def get_events_where(db: sqlite3.Connection, where: str, user_id:int = None, trailing = '', *where_args):
@@ -96,13 +98,57 @@ def update_user_interactions_emb(db: sqlite3.Connection, user_id: int, event_id:
 
     print(f'User {user_id}s ratings updated successfully.')
 
+
+def update_interests_emb(db: sqlite3.Connection, user_id: int, new_interests: list[str], interests_str: str, daily_interest_updates: int, emb_dim: int):
+    try:
+        db.execute("BEGIN TRANSACTION")
+
+        # Check which interests are not in the interests table TODO very inefficient
+        db_interests = db.execute("SELECT interest FROM interests").fetchall()
+        db_interests = {row[0] for row in db_interests}
+        missing_interests = [interest for interest in new_interests if interest not in db_interests]
+
+        # Embed missing interests
+        new_embeddings = dict(zip(missing_interests, get_embedding(missing_interests, key = os.getenv('OAI_KEY'))))
+
+        # Insert missing interests into the interests table
+        for interest, emb in new_embeddings.items():
+            db.execute(
+                "INSERT INTO interests (interest, emb) VALUES (?, ?)",
+                (interest, np.array(emb).tobytes())
+            )
+
+        # Retrieve embeddings for all user interests
+        query = f"""
+            SELECT emb
+            FROM interests
+            WHERE interest IN ({",".join("?" for _ in new_interests)})
+        """
+        embeddings = db.execute(query, new_interests).fetchall()
+        embeddings = [np.frombuffer(row[0], dtype=np.float64) for row in embeddings]
+
+        # Compute the average embedding and update
+        if embeddings:
+            average_embedding = np.mean(embeddings, axis=0)
+            db.execute(
+                "UPDATE users SET interests = ? ,interests_emb = ?, daily_interest_updates = ? WHERE user_id = ?",
+                (interests_str, average_embedding.tobytes(), daily_interest_updates + 1, user_id)
+            )
+
+        db.commit()
+
+    except Exception as e:
+        db.rollback()  # Roll back the transaction in case of any failure
+        raise Exception(f'Failed to update interests embeddings: {e}')
+
+
 def get_preferences(db: sqlite3.Connection, user_id: int) -> dict:
 
-    query = 'SELECT interests, keywordsToAvoid FROM users WHERE user_id = ?'
+    query = 'SELECT interests, keywordsToAvoid, daily_interest_updates FROM users WHERE user_id = ?'
     row = db.execute(query, (user_id,)).fetchone()
     if row is None: raise Exception(f'No preferences found for user_id {user_id}')
-    interests, keywords_to_avoid = row
-    return {'interests': interests, 'keywordsToAvoid': keywords_to_avoid}
+    interests, keywords_to_avoid, daily_interest_updates = row
+    return {'interests': interests, 'keywordsToAvoid': keywords_to_avoid, 'daily_interest_updates': int(daily_interest_updates)}
 
 def update_preference(db: sqlite3.Connection, user_id: int, pref_key: str, pref_value: str) -> None:
     if pref_key not in ['interests', 'keywordsToAvoid']: raise Exception(f'invalid preference key: {pref_key}')

@@ -2,6 +2,8 @@ from datetime import datetime
 import numpy as np
 import re
 
+str_err = lambda s: f'<span class="text-danger">{s}</span>'
+
 def format_event(event):
 
     truncate = lambda s, max_length: s[:max_length] + "..." if len(s) > max_length else s

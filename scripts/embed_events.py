@@ -7,7 +7,6 @@ import utils
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Fetches events from umich API, saves then to events table and updates statistics table')
     parser.add_argument('--db', type = str, help = 'Path to db file', default = 'data/main.db')
-    parser.add_argument('--centroids', type = str, help = 'Path centroids npy file', default = 'data/centroids.npy')
     parser.add_argument('--oai_key', type = str, help = 'OpenAI key to get embeddings', required = True)
     parser.add_argument('--output_emb', type = str, help = 'Output npy file to save embeddings', default = 'data/embeddings.npy', required = False)
     parser.add_argument('--notify', type = str, help = 'ntfy topic to notify status to if not empty', default = '', required = False)
@@ -21,9 +20,6 @@ if __name__ == '__main__':
     ids, to_embed = zip(*cursor.fetchall())
     logging.info(f'Embedding {len(to_embed)} events')
 
-    # Load centroids
-    centroids = np.load(args.centroids)
-    
     try:
         # Get embeddings from OAI
         logging.info('Getting embeddings ... ')
@@ -37,17 +33,14 @@ if __name__ == '__main__':
         E = np.load(args.output_emb)
         logging.info(f'Got embeddings shaped: {E.shape}')
 
-        # Get distances to centroids
-        dists_to_centroids = euclidean_distances(E, centroids)
-        logging.info(f'Got distances to centroids shaped: {dists_to_centroids.shape}')
 
         # Insert new embeddings into events table
         for id, emb, dists in zip(ids, E, dists_to_centroids):
             closest_cluster = int(dists.argmax())
-            cursor.execute('UPDATE events SET emb = ?, dists_to_clusters = ?, cluster = ? WHERE event_id = ?', (emb.tobytes(), dists.tobytes(), closest_cluster, id))
+            cursor.execute('UPDATE events SET emb = ? WHERE event_id = ?', (emb.tobytes(), id))
 
         conn.commit()
-        logging.info('Inserted new embeddings into curr_event_embeddings table')
+        logging.info('Inserted new embeddings into events table')
     
     except Exception as e:
         logging.error(f'Error getting embeddings: {e}')

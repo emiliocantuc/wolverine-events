@@ -7,3 +7,6 @@
 
 # Scrap events at 1 am (Eastern) Sundays, compute recommendations and send emails
 0 6 * * 0 cd ~/wolverine-events && sh update.sh
+
+# Reset limits daily
+30 20 * * * cd ~/wolverine-events && python3 scripts/reset_daily_limits.py >> scripts/reset.log

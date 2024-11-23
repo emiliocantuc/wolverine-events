@@ -10,12 +10,17 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 
 import wevents.db as db_utils
-from wevents.utils import format_event, filter_events_by_keywords
+from wevents.utils import format_event, filter_events_by_keywords, str_err
 
 # Rec. params
 N_FEATURED = 10
 N_PERSONAL = 35
 EMB_DIM = 1536
+
+# Other
+MAX_INTERESTS = 10
+MAX_INTEREST_LEN = 20
+MAX_DAILY_INTEREST_UPDATES = 10
 
 # Sign in stuff
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
@@ -26,6 +31,10 @@ app = Flask(__name__)
 # Secret key to sign cookies and maintain sessions
 app.secret_key = os.environ.get('SESSION_SECRET', 'devkey')
 if app.secret_key == 'devkey': print('WARNING: no secret key found, using default devkey')
+
+# Emb key
+EMB_KEY = os.getenv('OAI_KEY')
+if EMB_KEY is None: print('WARNING: No embedding key!')
 
 # Database stuff
 app.config['DATABASE'] = 'data/main.db'
@@ -78,7 +87,7 @@ def main():
 
     # Compute recommended
     recommended_events = None
-    recs_info = {'N_PERSONAL': N_PERSONAL, 'INV_TEMP': INV_TEMP}
+    recs_info = {'N_PERSONAL': N_PERSONAL}
     try:
         if g.user:
 
@@ -97,9 +106,6 @@ def main():
 
             user_emb = db_utils.get_user_emb(db = db, user_id = g.user)
             preds = E @ user_emb
-
-            preds.sort()
-            print(preds.cumsum())
 
             # Recommend events with highest predicted rating
             rec_ixs = (-preds).argsort()[:N_PERSONAL] # ix in current_events
@@ -144,7 +150,7 @@ def prefs():
             return render_template('prefs.html', prefs = prefs)
         except Exception as e:
             print(f'Error getting preferences: {e}')
-            return "An error occurred. Please try again later."
+            return str_err("An error occurred. Please try again later.")
     
     if request.method == 'DELETE':
         try:
@@ -156,7 +162,30 @@ def prefs():
             return "An error occurred. Please <a href=\"mailto:emilio@mywolverine.events\">email support</a>."
     
     key, value = next(request.form.items())
-    db_utils.update_preference(db = db, user_id = g.user, pref_key = key, pref_value = value)
+
+    if key == 'interests':
+
+        interest_list = lambda s: [i.strip().lower() for i in s.split(',')]
+        interests = interest_list(value)
+
+        if len(interests) > MAX_INTERESTS:
+            return str_err(f'Error: Can only have {MAX_INTERESTS} or less interests')
+        if max(map(len, interests)) > MAX_INTEREST_LEN:
+            return str_err(f'Error: Interests must have length < {MAX_INTEREST_LEN}')
+        
+        prefs = db_utils.get_preferences(db = db, user_id = g.user)
+
+        if prefs['daily_interest_updates'] >= MAX_DAILY_INTEREST_UPDATES:
+            return str_err(f'Error: Reached max no. of daily interest updates. Please update tomorrow.')
+
+        new_interests = set(interests) - set(interest_list(prefs['interests']) )  
+        db_utils.update_interests_emb(
+            db = db, user_id = g.user, new_interests = list(new_interests), interests_str = value,
+            daily_interest_updates = prefs['daily_interest_updates'], emb_dim = EMB_DIM
+        ) 
+
+    else: 
+        db_utils.update_preference(db = db, user_id = g.user, pref_key = key, pref_value = value)
     return 'Saved'
 
 @app.route('/similar/<id>', methods = ['GET'])
@@ -179,7 +208,6 @@ def similar(id = None):
 
             preds = E @ event_emb
 
-            # TODO check same error above
             # "Recommend" events with highest predicted rating
             rec_ixs = (-preds).argsort()[:N_PERSONAL] # ix in E
             rec_ids = ids[rec_ixs].tolist()

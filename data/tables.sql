@@ -6,12 +6,17 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(100) NOT NULL UNIQUE,
     interests TEXT DEFAULT '',
     keywordsToAvoid TEXT DEFAULT '',
-    update_intersts INTEGER DEFAULT 0 CHECK (update_intersts IN (0, 1)),
+    daily_interest_updates INTEGER DEFAULT 0,
     interests_emb BLOB,                     -- Mean of interest embeddings 
     interactions_emb BLOB,                  -- Weighted mean (based of positve / negative interactions) of event embeddings
     alpha FLOAT DEFAULT 0.8,
     beta FLOAT DEFAULT 0.8,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS interests (
+    interest TEXT PRIMARY KEY,      -- Use interest_name as the primary key
+    emb BLOB NOT NULL               -- The embedding for the interest
 );
 
 CREATE TABLE IF NOT EXISTS events (
