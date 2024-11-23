@@ -35,8 +35,7 @@ if __name__ == '__main__':
 
 
         # Insert new embeddings into events table
-        for id, emb, dists in zip(ids, E, dists_to_centroids):
-            closest_cluster = int(dists.argmax())
+        for id, emb in zip(ids, E):
             cursor.execute('UPDATE events SET emb = ? WHERE event_id = ?', (emb.tobytes(), id))
 
         conn.commit()
