@@ -48,3 +48,14 @@ def filter_events_by_keywords(events, keywords):
         for kw in keywords.split(',')
     )
     return list(filter(does_not_have_kws, events))
+
+def deduplicate_events(events, threshold):
+    # Deduplicates events with cos similarity over threshold
+    # For now removes the higher id arbritrarily
+    # TODO: remove the furthest away?
+    E = np.array([e['emb'] for e in events])
+    ids = np.array([e['id'] for e in events])
+    sims = E @ E.T
+    n = sims.shape[0]
+    ids_to_remove = set([int(ids[j]) for i in range(n) for j in range(n) if i < j and sims[i][j] > threshold])
+    return [e for e in events if e['id'] not in ids_to_remove]

@@ -10,7 +10,7 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 
 import wevents.db as db_utils
-from wevents.utils import format_event, filter_events_by_keywords, str_err
+from wevents.utils import format_event, filter_events_by_keywords, deduplicate_events, str_err
 
 # Rec. params
 N_FEATURED = 10
@@ -21,6 +21,8 @@ EMB_DIM = 1536
 MAX_INTERESTS = 10
 MAX_INTEREST_LEN = 20
 MAX_DAILY_INTEREST_UPDATES = 10
+
+DEDUP_THRESHOLD = 0.9
 
 # Sign in stuff
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
@@ -99,6 +101,11 @@ def main():
             if preferences.get('keywordsToAvoid'):
                 events = filter_events_by_keywords(events, preferences['keywordsToAvoid'])
             recs_info['n_filtered'] = recs_info['n_available'] - len(events)
+
+            # Deduplicate
+            events = deduplicate_events(events, DEDUP_THRESHOLD)
+            recs_info['n_deduplicated'] = (recs_info['n_available'] - recs_info['n_filtered']) - len(events)
+            print(f'Filtered out {recs_info["n_filtered"]} and deduplicated {recs_info["n_deduplicated"]}')
 
             # Event embeddings
             E = np.array([e['emb'] for e in events])
@@ -184,7 +191,7 @@ def prefs():
                 db = db, user_id = g.user, new_interests = list(new_interests), interests_str = value,
                 daily_interest_updates = prefs['daily_interest_updates'], emb_dim = EMB_DIM
             ) 
-q
+
         db_utils.update_preference(db = db, user_id = g.user, pref_key = key, pref_value = value)
         return 'Saved'
     
