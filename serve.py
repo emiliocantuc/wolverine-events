@@ -162,31 +162,36 @@ def prefs():
             return "An error occurred. Please <a href=\"mailto:emilio@mywolverine.events\">email support</a>."
     
     key, value = next(request.form.items())
+    try:
 
-    if key == 'interests':
+        if key == 'interests':
 
-        interest_list = lambda s: [i.strip().lower() for i in s.split(',')]
-        interests = interest_list(value)
+            interest_list = lambda s: [i.strip().lower() for i in s.split(',')]
+            interests = interest_list(value)
 
-        if len(interests) > MAX_INTERESTS:
-            return str_err(f'Error: Can only have {MAX_INTERESTS} or less interests')
-        if max(map(len, interests)) > MAX_INTEREST_LEN:
-            return str_err(f'Error: Interests must have length < {MAX_INTEREST_LEN}')
-        
-        prefs = db_utils.get_preferences(db = db, user_id = g.user)
+            if len(interests) > MAX_INTERESTS:
+                return str_err(f'Error: Can only have {MAX_INTERESTS} or less interests')
+            if max(map(len, interests)) > MAX_INTEREST_LEN:
+                return str_err(f'Error: Interests must have length < {MAX_INTEREST_LEN}')
+            
+            prefs = db_utils.get_preferences(db = db, user_id = g.user)
 
-        if prefs['daily_interest_updates'] >= MAX_DAILY_INTEREST_UPDATES:
-            return str_err(f'Error: Reached max no. of daily interest updates. Please update tomorrow.')
+            if prefs['daily_interest_updates'] >= MAX_DAILY_INTEREST_UPDATES:
+                return str_err(f'Error: Reached max no. of daily interest updates. Please update tomorrow.')
 
-        new_interests = set(interests) - set(interest_list(prefs['interests']) )  
-        db_utils.update_interests_emb(
-            db = db, user_id = g.user, new_interests = list(new_interests), interests_str = value,
-            daily_interest_updates = prefs['daily_interest_updates'], emb_dim = EMB_DIM
-        ) 
-
-    else: 
+            new_interests = set(interests) - set(interest_list(prefs['interests']) )  
+            db_utils.update_interests_emb(
+                db = db, user_id = g.user, new_interests = list(new_interests), interests_str = value,
+                daily_interest_updates = prefs['daily_interest_updates'], emb_dim = EMB_DIM
+            ) 
+q
         db_utils.update_preference(db = db, user_id = g.user, pref_key = key, pref_value = value)
-    return 'Saved'
+        return 'Saved'
+    
+    except Exception as e:
+        print(f'Error updating interests: {e}')
+        return str_err('An error occurred. Please try again or contact support.')
+
 
 @app.route('/similar/<id>', methods = ['GET'])
 def similar(id = None):

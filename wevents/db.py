@@ -106,6 +106,9 @@ def update_interests_emb(db: sqlite3.Connection, user_id: int, new_interests: li
         db_interests = db.execute("SELECT interest FROM interests").fetchall()
         db_interests = {row[0] for row in db_interests}
         missing_interests = [interest for interest in new_interests if interest not in db_interests]
+        if not missing_interests:
+            db.commit()
+            return
 
         # Embed missing interests
         new_embeddings = dict(zip(missing_interests, get_embedding(missing_interests, key = os.getenv('OAI_KEY'))))
