@@ -1,5 +1,7 @@
-{% macro eventCard(event) %}
+{% macro eventCard(event, alone=False) %}
+{% if not alone %}
 <div class="col-lg-6 col-md-6 col-sm-14 mb-2">
+{% endif %}
     <div class="card">
         <div class="card-body" {% if event.highlight %} style="background-color: rgba(255, 205, 5, 0.2);"{% endif %}>
 
@@ -61,5 +63,7 @@
             </div>
         </div>
     </div>
+{% if not alone %}
 </div>
+{% endif %}
 {% endmacro %}

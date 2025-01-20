@@ -47,8 +47,11 @@ def get_events_where(db: sqlite3.Connection, where: str, user_id:int = None, tra
     if user_id is not None: keys.append('UserVote')
     return [dict(zip(keys, row)) for row in results]
 
-def get_events_by_ids(db: sqlite3.Connection, event_ids: list[int], user_id:int = None):
-    return get_events_where(db, f"Id IN ({','.join('?' * len(event_ids))}) AND e.event_end > CURRENT_DATE", user_id, '', *event_ids)
+def get_events_by_ids(db: sqlite3.Connection, event_ids: list[int], user_id:int = None, after_current:bool = True):
+    w = f"Id IN ({','.join('?' * len(event_ids))})"
+    if after_current:
+        w += " AND e.event_end > CURRENT_DATE"
+    return get_events_where(db, w, user_id, '', *event_ids)
 
 def get_top_events(db, limit, user_id = None):
     trailing = """
@@ -64,6 +67,13 @@ def get_event_blobs_and_gen_info(db: sqlite3.Connection):
     cursor.execute(query)
     results = cursor.fetchall()
     return [{'id': row[0], 'emb': np.frombuffer(row[1]), 'title': row[2], 'event_description': row[3]} for row in results]
+
+def get_event_title_list(db: sqlite3.Connection):
+    query = 'SELECT event_id, title FROM events'
+    cursor = db.cursor()
+    cursor.execute(query)
+    results = cursor.fetchall()
+    return [dict(zip(['id', 'title'], row)) for row in results]
 
 ########################################## USER ##########################################
 def get_user_emb(db: sqlite3.Connection, user_id: int) -> dict:

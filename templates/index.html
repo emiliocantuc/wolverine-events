@@ -53,6 +53,27 @@
         <br><a href="#recs">Jump to Your Recommendations ↓</a>
         {% endif %} -->
     </header>
+
+    <!-- Search -->
+    <div class="container mb-4">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="position-relative">
+                    <div class="input-group">
+                        <input 
+                            type="text" 
+                            id="eventSearch" 
+                            class="form-control" 
+                            placeholder="Search events ..."
+                            aria-label="Search events">
+                    </div>
+                    <div id="searchMatches" class="position-absolute w-100 bg-white shadow-sm rounded-bottom" style="display: none; z-index: 1000;"></div>
+                </div>
+                <div id="searchResult" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+
     {% if featured_events %}
     <h3 id="featured" class="text-center"><span>Popular Events This Week</span></h3>
     <div class="text-center">or <a class="text-center" href="#recs">Jump to Your Recommendations ↓</a></div><br>
@@ -76,7 +97,7 @@
 
     {% if g.user %}
     {% if recommended_events %}
-    <h3 id="recs" class="text-center"><span>Your recommendations</span></h3>
+    <h3 id="recs" class="text-center mt-5"><span>Your recommendations</span></h3>
     <div class="text-center">or <a class="text-center" href="#featured">Jump to Featured ↑</a><br></div><br>
     <div class="text-center text-muted">
         Showing top {{ recommended_events | length }} of {{ recs_info.n_available}} available events<br>

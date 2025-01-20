@@ -1,8 +1,8 @@
-import os
+import os, json
 import numpy as np
 
 from flask import Flask, request, redirect, url_for
-from flask import render_template
+from flask import render_template, render_template_string
 from flask import g # global session-level object
 from flask import session
 import sqlite3
@@ -199,6 +199,29 @@ def prefs():
         print(f'Error updating interests: {e}')
         return str_err('An error occurred. Please try again or contact support.')
 
+
+@app.route('/event/<id>', methods = ['GET'])
+def event(id = None):
+    # Returns event card HTML
+    try:
+        event_info = db_utils.get_events_by_ids(get_db(), [id], after_current = False)[0]
+        event = format_event(event_info)
+        return render_template_string("""
+            {% import 'event_card.html' as eventCards %}
+            {{ eventCards.eventCard(event, alone=True) }}
+        """, event = event)
+
+    except Exception as e:
+        print(f'Error getting event w/id {id}: {e}')
+        return 'Error getting event'
+
+@app.route('/event_list', methods = ['GET'])
+def event_list():
+    # Returns JSON [{'id': 1, 'title': 'Title', ...}] w/all current events for search
+    try: return db_utils.get_event_title_list(get_db())
+    except Exception as e:
+        print(f'Error getting event_list: {e}')
+        return {}
 
 @app.route('/similar/<id>', methods = ['GET'])
 def similar(id = None):
