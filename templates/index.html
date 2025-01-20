@@ -36,7 +36,7 @@
     </ul>
 
 
-    <header class="text-center" style="padding-top:64px;padding-bottom:48px;">
+    <header class="text-center" style="padding-top:64px;padding-bottom:32px;">
         <h2>My Wolverine Events</h2>
         {% if not g.user %}
         <p class="lead">Get weekly personalized U of M (Ann Arbor) event recommendations</p>
@@ -74,31 +74,10 @@
         </div>
     </div>
 
-    {% if featured_events %}
-    <h3 id="featured" class="text-center"><span>Popular Events This Week</span></h3>
-    <div class="text-center">or <a class="text-center" href="#recs">Jump to Your Recommendations ↓</a></div><br>
-
-    <div class="container p-0">
-        <div class="card-deck">
-
-            {% for event in featured_events %}
-            {% import 'event_card.html' as eventCards %}
-            {{ eventCards.eventCard(event) }}
-            {% endfor %}
-
-        </div>
-    </div>
-    {% else %}
-    <div class="container text-center">
-        <p>No popular events found. Something might be wrong. Please <a href="mailto:emilio@mywolverine.events">email
-                us</a> to let us know. Sorry!</p>
-    </div>
-    {% endif %}
-
     {% if g.user %}
     {% if recommended_events %}
-    <h3 id="recs" class="text-center mt-5"><span>Your recommendations</span></h3>
-    <div class="text-center">or <a class="text-center" href="#featured">Jump to Featured ↑</a><br></div><br>
+    <h3 id="recs" class="text-center"><span>Your recommendations</span></h3>
+    <div class="text-center">or <a class="text-center" href="#featured">Jump to Featured ↓</a><br></div><br>
     <div class="text-center text-muted">
         Showing top {{ recommended_events | length }} of {{ recs_info.n_available}} available events<br>
         (filtered out {{ recs_info.n_filtered }} by keywords set in preferences)
@@ -119,12 +98,34 @@
         <a href="#recs" onclick="location.reload()" style="text-decoration: underline;">Click to refresh and scroll up</a><br>
         <small>A good way to improve your recs the first couple of weeks is to rate them, refresh, and repeat a couple of times.</small>
     </div>
+    <br><br>
     {% else %}
     <div class="container text-center mb-5">
         <p>Your recommendations have not been computed yet. They usually are during the weekend. We'll send you a
             reminder when they are ready!</p>
     </div>
     {% endif %}
+    {% endif %}
+
+    {% if featured_events %}
+    <h3 id="featured" class="text-center"><span>Popular Events This Week</span></h3>
+    <div class="text-center">or <a class="text-center" href="#recs">Jump to Your Recommendations ↑</a></div><br>
+
+    <div class="container p-0">
+        <div class="card-deck">
+
+            {% for event in featured_events %}
+            {% import 'event_card.html' as eventCards %}
+            {{ eventCards.eventCard(event) }}
+            {% endfor %}
+
+        </div>
+    </div>
+    {% else %}
+    <div class="container text-center">
+        <p>No popular events found. Something might be wrong. Please <a href="mailto:emilio@mywolverine.events">email
+                us</a> to let us know. Sorry!</p>
+    </div>
     {% endif %}
 
     <footer class="text-center py-3 mt-5">
