@@ -203,7 +203,7 @@ def prefs():
 def event(id = None):
     # Returns event card HTML
     try:
-        event_info = db_utils.get_events_by_ids(get_db(), [id], after_current = False)[0]
+        event_info = db_utils.get_events_by_ids(get_db(), event_ids = [id], user_id = g.user, after_current = False)[0]
         event = format_event(event_info)
         return render_template_string("""
             {% import 'event_card.html' as eventCards %}
