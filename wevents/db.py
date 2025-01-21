@@ -12,6 +12,7 @@ def get_events_where(db: sqlite3.Connection, where: str, user_id:int = None, tra
         CASE 
             WHEN uv.vote_type = 'U' THEN 'U'
             WHEN uv.vote_type = 'D' THEN 'D'
+            WHEN uv.vote_type = 'C' THEN 'C'
             ELSE NULL
         END AS UserVote
     """ if user_id is not None else ""
