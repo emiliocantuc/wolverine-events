@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS users (
     daily_interest_updates INTEGER DEFAULT 0,
     interests_emb BLOB,                     -- Mean of interest embeddings 
     interactions_emb BLOB,                  -- Weighted mean (based of positve / negative interactions) of event embeddings
-    alpha FLOAT DEFAULT 0.3,                -- Interests weight in lin comb with interactions emb
-    beta FLOAT DEFAULT 0.8,                 -- EMA weight for old interactions emb
+    alpha FLOAT DEFAULT 0.4,                -- Interests weight in lin comb with interactions emb
+    beta FLOAT DEFAULT 0.9,                 -- EMA weight for old interactions emb
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

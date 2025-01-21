@@ -1,5 +1,6 @@
 import os, json
 import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
 
 from flask import Flask, request, redirect, url_for
 from flask import render_template, render_template_string
@@ -182,13 +183,11 @@ def prefs():
                 return str_err(f'Error: Interests must have length < {MAX_INTEREST_LEN}')
             
             prefs = db_utils.get_preferences(db = db, user_id = g.user)
-
             if prefs['daily_interest_updates'] >= MAX_DAILY_INTEREST_UPDATES:
                 return str_err(f'Error: Reached max no. of daily interest updates. Please update tomorrow.')
 
-            new_interests = set(interests) - set(interest_list(prefs['interests']) )  
             db_utils.update_interests_emb(
-                db = db, user_id = g.user, new_interests = list(new_interests), interests_str = value,
+                db = db, user_id = g.user, interests_list = interests,
                 daily_interest_updates = prefs['daily_interest_updates'], emb_dim = EMB_DIM
             ) 
 

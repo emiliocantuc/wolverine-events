@@ -3,6 +3,7 @@ import numpy as np
 from datetime import datetime
 
 from scripts.utils import get_embedding
+from wevents.utils import normalize
 
 ######################################### EVENTS #########################################
 def get_events_where(db: sqlite3.Connection, where: str, user_id:int = None, trailing = '', *where_args):
@@ -81,7 +82,7 @@ def get_user_emb(db: sqlite3.Connection, user_id: int) -> dict:
     cursor = db.execute(query, (user_id,))
     row = cursor.fetchone()
     interests_emb, interactions_emb, alpha = np.frombuffer(row[0]), np.frombuffer(row[1]), row[2]
-    return (alpha) * interests_emb + (1-alpha) * interactions_emb
+    return (alpha) * normalize(interests_emb) + (1-alpha) * normalize(interactions_emb)
 
 def update_user_interactions_emb(db: sqlite3.Connection, user_id: int, event_id: int, rating: float):
     """
@@ -108,18 +109,15 @@ def update_user_interactions_emb(db: sqlite3.Connection, user_id: int, event_id:
     print(f'User {user_id}s ratings updated successfully.')
 
 
-def update_interests_emb(db: sqlite3.Connection, user_id: int, new_interests: list[str], interests_str: str, daily_interest_updates: int, emb_dim: int):
+def update_interests_emb(db: sqlite3.Connection, user_id: int, interests_list: list[str], daily_interest_updates: int, emb_dim: int):
     try:
         db.execute("BEGIN TRANSACTION")
 
         # Check which interests are not in the interests table TODO very inefficient
-        db_interests = db.execute("SELECT interest FROM interests").fetchall()
-        db_interests = {row[0] for row in db_interests}
-        missing_interests = [interest for interest in new_interests if interest not in db_interests]
-        if not missing_interests:
-            db.commit()
-            return
-
+        query = f"SELECT interest FROM interests WHERE interest IN ('{'\',\''.join(interests_list)}')"
+        existing_interests = {row[0] for row in db.execute(query).fetchall()}
+        missing_interests = list(set(interests_list) - set(existing_interests))
+        
         # Embed missing interests
         new_embeddings = dict(zip(missing_interests, get_embedding(missing_interests, key = os.getenv('OAI_KEY'))))
 
@@ -134,22 +132,24 @@ def update_interests_emb(db: sqlite3.Connection, user_id: int, new_interests: li
         query = f"""
             SELECT emb
             FROM interests
-            WHERE interest IN ({",".join("?" for _ in new_interests)})
+            WHERE interest IN ({",".join("?" for _ in interests_list)})
         """
-        embeddings = db.execute(query, new_interests).fetchall()
-        embeddings = [np.frombuffer(row[0], dtype=np.float64) for row in embeddings]
+        embeddings = db.execute(query, interests_list).fetchall()
+        embeddings = [np.frombuffer(row[0], dtype = np.float64) for row in embeddings]
 
         # Compute the average embedding and update
         if embeddings:
             average_embedding = np.mean(embeddings, axis=0)
             db.execute(
                 "UPDATE users SET interests = ? ,interests_emb = ?, daily_interest_updates = ? WHERE user_id = ?",
-                (interests_str, average_embedding.tobytes(), daily_interest_updates + 1, user_id)
+                (','.join(interests_list), average_embedding.tobytes(), daily_interest_updates + 1, user_id)
             )
+            print(f'updating interest emb for user {user_id} with {interests_list}, new: {missing_interests}')
 
         db.commit()
 
     except Exception as e:
+        print(f'error {e}')
         db.rollback()  # Roll back the transaction in case of any failure
         raise Exception(f'Failed to update interests embeddings: {e}')
 
@@ -181,7 +181,7 @@ def signin_user(db: sqlite3.Connection, email: str, emb_dim: int, unif_range: fl
     
     # If user doesn't exist, insert the new user
     interests_emb    = np.random.uniform(-unif_range, unif_range, size = emb_dim)
-    interactions_emb = np.random.uniform(-unif_range, unif_range, size = emb_dim)
+    interactions_emb = np.zeros((emb_dim,))
 
     cursor = db.execute(
         'INSERT INTO users (email, interests_emb, interactions_emb) VALUES (?, ?, ?)',
