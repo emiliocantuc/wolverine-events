@@ -101,7 +101,7 @@ def update_user_interactions_emb(db: sqlite3.Connection, user_id: int, event_id:
     interactions_emb, beta = np.frombuffer(row[0]), row[1]
 
     # Update emb
-    interactions_emb = beta * interactions_emb + (1-beta) * (rating * event_emb)
+    interactions_emb = beta * normalize(interactions_emb) + (1-beta) * (rating * normalize(event_emb))
     
     db.execute('UPDATE users SET interactions_emb = ? WHERE user_id = ?', (interactions_emb.tobytes(), user_id))
     db.commit()
@@ -117,16 +117,17 @@ def update_interests_emb(db: sqlite3.Connection, user_id: int, interests_list: l
         query = f"SELECT interest FROM interests WHERE interest IN ('{'\',\''.join(interests_list)}')"
         existing_interests = {row[0] for row in db.execute(query).fetchall()}
         missing_interests = list(set(interests_list) - set(existing_interests))
-        
-        # Embed missing interests
-        new_embeddings = dict(zip(missing_interests, get_embedding(missing_interests, key = os.getenv('OAI_KEY'))))
 
-        # Insert missing interests into the interests table
-        for interest, emb in new_embeddings.items():
-            db.execute(
-                "INSERT INTO interests (interest, emb) VALUES (?, ?)",
-                (interest, np.array(emb).tobytes())
-            )
+        if missing_interests:
+            # Embed missing interests
+            new_embeddings = dict(zip(missing_interests, get_embedding(missing_interests, key = os.getenv('OAI_KEY'))))
+
+            # Insert missing interests into the interests table
+            for interest, emb in new_embeddings.items():
+                db.execute(
+                    "INSERT INTO interests (interest, emb) VALUES (?, ?)",
+                    (interest, np.array(emb).tobytes())
+                )
 
         # Retrieve embeddings for all user interests
         query = f"""
@@ -136,6 +137,7 @@ def update_interests_emb(db: sqlite3.Connection, user_id: int, interests_list: l
         """
         embeddings = db.execute(query, interests_list).fetchall()
         embeddings = [np.frombuffer(row[0], dtype = np.float64) for row in embeddings]
+        # assert all([abs(1 - np.linalg.norm(e)) <= 1e-5 for e in embeddings]), 'New interest embs are not normalized'
 
         # Compute the average embedding and update
         if embeddings:
