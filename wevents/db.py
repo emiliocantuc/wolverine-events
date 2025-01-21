@@ -63,12 +63,25 @@ def get_top_events(db, limit, user_id = None):
     
     return get_events_where(db, "e.event_end > CURRENT_DATE", user_id, trailing, limit)
 
-def get_event_blobs_and_gen_info(db: sqlite3.Connection):
-    query = 'SELECT event_id, emb, title, event_description FROM events WHERE event_end > CURRENT_DATE'
+def get_event_blobs_and_gen_info(db: sqlite3.Connection, get_vote = False, user_id:int = None):
+    get_vote = get_vote and user_id is not None
+    query = f'''
+        SELECT e.event_id, emb, title, event_description{", uv.vote_type" if get_vote else ""}
+        FROM events e
+        {"LEFT JOIN votes uv ON e.event_id = uv.event_id AND uv.user_id = ?" if get_vote else ""}
+        WHERE event_end > CURRENT_DATE
+    '''
     cursor = db.cursor()
-    cursor.execute(query)
+    cursor.execute(query, (user_id,) if get_vote else None)
     results = cursor.fetchall()
-    return [{'id': row[0], 'emb': np.frombuffer(row[1]), 'title': row[2], 'event_description': row[3]} for row in results]
+    out = [
+        {
+            'id': row[0], 'emb': np.frombuffer(row[1]), 'title': row[2],
+            'event_description': row[3], **({'vote_type': row[4]} if get_vote else {})
+        }
+        for row in results
+    ]
+    return out
 
 def get_event_title_list(db: sqlite3.Connection):
     query = 'SELECT event_id, title FROM events'

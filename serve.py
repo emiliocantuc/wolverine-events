@@ -95,18 +95,26 @@ def main():
         if g.user:
 
             preferences = db_utils.get_preferences(db = db, user_id = g.user)
-            events = db_utils.get_event_blobs_and_gen_info(db = db) # TODO should we just keep in memory?
-
-            # Filter out by keywords
+            events = db_utils.get_event_blobs_and_gen_info(db = db, get_vote = True, user_id = g.user) # TODO should we just keep in memory?
             recs_info['n_available'] = len(events)
+            
+            # Filter out by keywords
+            n = len(events)
             if preferences.get('keywordsToAvoid'):
                 events = filter_events_by_keywords(events, preferences['keywordsToAvoid'])
-            recs_info['n_filtered'] = recs_info['n_available'] - len(events)
+            recs_info['n_filtered'] = n - len(events)
+
+            # Filter out downvoted
+            n = len(events)
+            events = list(filter(lambda e: e.get('vote_type', 'N') != 'D', events))
+            recs_info['n_downvoted'] = n - len(events)
 
             # Deduplicate
+            n = len(events)
             events = deduplicate_events(events, DEDUP_THRESHOLD)
-            recs_info['n_deduplicated'] = (recs_info['n_available'] - recs_info['n_filtered']) - len(events)
-            print(f'Filtered out {recs_info["n_filtered"]} and deduplicated {recs_info["n_deduplicated"]}')
+            recs_info['n_deduplicated'] = n - len(events)
+
+            print(f'{recs_info["n_filtered"]} filtered, {recs_info["n_downvoted"]} downvote filtered, and {recs_info["n_deduplicated"]} deduplicated')
 
             # Event embeddings
             E = np.array([e['emb'] for e in events])
