@@ -1,6 +1,5 @@
-# Fetches events from umich API, saves then to events table and updates statistics table
-# Then obtains their embeddings and saves them to data/current_embeddings.npy
-# Mean to be ran weekly (fetches from weekly endpoint by default)
+# Fetches events from umich API, saves then to events table and updates statistics table.
+# Meant to be ran weekly (fetches from weekly endpoint by default).
 
 import sqlite3, requests, argparse, os, json, logging
 from datetime import datetime
@@ -58,18 +57,22 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Fetches events from umich API, saves then to events table and updates statistics table')
     parser.add_argument('--eventsURL', type = str, help = 'Events json endpoint', default = 'https://events.umich.edu/week/json?v=2', required = False)
     parser.add_argument('--db', type = str, help = 'path to db file', default = 'data/main.db', required = False)
-    parser.add_argument('--current_events_json', type = str, help = 'JSON file w/current events', default = 'data/current_events.json', required = False)
+    parser.add_argument('--output_json', type = str, help = 'JSON file w/current events', default = 'data/current_events.json', required = False)
     parser.add_argument('--notify', type = str, help = 'ntfy to notify status to if not empty', default = '', required = False)
     args = parser.parse_args()
     logging.basicConfig(level = logging.INFO, format = '%(asctime)s - %(levelname)s - %(message)s')
 
     assert os.path.exists(os.path.dirname(args.db)), 'The output db does not exist'
     
+    # Scrap
     events = get_events(args.eventsURL)
     logging.info(f'Found {len(events)} events. Getting calendar links ... ')
     get_cal_links(events)
-    # with open('data/current_events.json', 'r') as f: events = json.loads(f.read())
 
+    # Save to json (for debugging)
+    with open(args.output_json, 'w+') as f: json.dump(events, f, indent = 4)
+
+    # Save to db
     logging.info('Got cal links. Inserting events in db ...')
     conn = sqlite3.connect(args.db)
     cursor = conn.cursor()

@@ -239,7 +239,7 @@ def similar(id = None):
     if request.method == 'GET':
         try:
 
-            events = db_utils.get_event_blobs_and_gen_info(db = db) # TODO should we just keep in memory?
+            events = db_utils.get_event_blobs_and_gen_info(db = db, get_vote = True, user_id = g.user) # TODO should we just keep in memory?
 
             # Event embeddings
             E = np.array([e['emb'] for e in events])

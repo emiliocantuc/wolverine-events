@@ -38,5 +38,6 @@ You received this email because you signed up to the site (https://mywolverine.e
 4. Install dependencies w/`pip install -r requirements.txt` and run `sudo sh serve.sh`
 
 ## TODOs
+- Check str rep of sporting events: do co-sponsors how up?
 - Skip events user has already rated
 - diversify feed (sample using predicted rating?)

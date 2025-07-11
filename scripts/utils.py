@@ -17,6 +17,8 @@ gget = lambda e, k, v: e.get(k, None) if e.get(k, None) is not None else v
 def stringify_event(e):
     limit = lambda s, n: s if len(s) < n else s[:n-3] + '...'
     sponsors = [gget(s, 'group_name', '') for s in gget(e, 'sponsors', {})]
+    maize_group = e.get('maizepages_import', {}).get('maizepages_group_name')
+    if maize_group: sponsors.append(maize_group)
     o = [
         f"{e['event_type']}:{limit(gget(e, 'combined_title', ''), 200)}",
         f"{limit(gget(e, 'description', ''), 800)}",

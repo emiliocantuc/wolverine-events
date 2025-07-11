@@ -8,4 +8,4 @@ while IFS='=' read -r key value; do
   export "$key=$value"
 done < "$ENV_FILE"
 
-flask --app serve.py run --host=0.0.0.0 --port=80 --debug
+flask --app serve.py run --host=0.0.0.0 --port=5001 --debug
