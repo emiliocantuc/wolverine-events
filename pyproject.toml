@@ -1,0 +1,13 @@
+[project]
+name = "wolverine-events"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "flask==3.0.3",
+    "google-auth==2.29.0",
+    "numpy==2.1.2",
+    "requests==2.32.3",
+    "scikit-learn==1.5.2",
+]

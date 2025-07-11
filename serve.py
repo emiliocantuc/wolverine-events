@@ -281,3 +281,8 @@ def stats():
     except Exception as e:
         print(f'Error getting preferences: {e}')
         return "An error occurred. Please try again later."
+
+
+if __name__ == '__main__':
+
+    app.run(debug = True, port = 5001)

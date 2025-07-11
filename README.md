@@ -35,7 +35,7 @@ Emilio
 You received this email because you signed up to the site (https://mywolverine.events) and joined the MCommunity group https://mcommunity.umich.edu/group/Event%20Recommentations. To stop receiving these emails follow the group link and press "Leave Group".
 ```
 
-4. Install dependencies w/`pip install -r requirements.txt` and run `sudo sh serve.sh`
+4. Run `uv run --env-file .env serve.py`
 
 ## TODOs
 - Check str rep of sporting events: do co-sponsors how up?
